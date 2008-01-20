@@ -445,7 +445,7 @@ log to stdout for this example.  Trace happens at logging.DEBUG level.
     >>> data = conn.execute(qry)
     DEBUG:root:(C) BEGIN_TRANSACTION
     DEBUG:root:(S) BEGIN_TRANSACTION_OK
-    DEBUG:root:(C) EXECUTE: $item in document("BS")//book
+    DEBUG:root:(C) EXECUTE: for $item in document("BS")//book
     let $price := round-half-to-even($item/price * 1.1,2)
     where $item/title = "Learning XML"
     return <price>{$price}</price>
