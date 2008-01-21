@@ -18,9 +18,11 @@ conn = protocol.SednaProtocol(host,port,username,password,database)
 
 conn.traceOn()
 
-t = conn.getDocumentStats('ot')
-print t
-if not 'ot' in z:
+docs = conn.documents
+
+# looking for a file from Jon Bosa
+
+if not 'ot' in docs:
     conn.loadFile('/some_path/ot/ot.xml', 'ot')
 begat_verses = conn.query('for $item in doc("ot")//v'+\
     ' where contains($item,"begat") return $item')

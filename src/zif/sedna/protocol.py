@@ -183,7 +183,7 @@ class Result(object):
 
     def getTime(self):
         if not self._time:
-            time = self.conn._send_string(token=SHOW_TIME)
+            time = self.conn._send_string(token=SE_SHOW_TIME)
             self._time = time.decode('utf-8')
         return self._time
 
@@ -191,7 +191,7 @@ class Result(object):
 
     def next(self):
         if self.more:
-            self.conn._send_string(token=GET_NEXT_ITEM)
+            self.conn._send_string(token=SE_GET_NEXT_ITEM)
         if self.item is None:
             raise StopIteration
         else:
@@ -296,14 +296,14 @@ class SednaProtocol(object):
         if not self.inTransaction:
             self.begin()
         self.error = None
-        self._send_string(query,token=EXECUTE,format=format)
+        self._send_string(query,token=SE_EXECUTE,format=format)
         return self.result
 
     query = execute
 
     def close(self):
         if not self.closed:
-            self._send_string(token=CLOSE_CONNECTION)
+            self._send_string(token=SE_CLOSE_CONNECTION)
             #except DatabaseError, e:
                 #import warnings
                 #warnings.warn('While closing connection, %s' % e.info)
@@ -324,7 +324,7 @@ class SednaProtocol(object):
         start transaction
         """
         if not self.inTransaction:
-            self._send_string(token=BEGIN_TRANSACTION)
+            self._send_string(token=SE_BEGIN_TRANSACTION)
         else:
             raise Warning('starting a session already in progress')
 
@@ -332,13 +332,13 @@ class SednaProtocol(object):
         """
         commit transaction
         """
-        return self._send_string(token=COMMIT_TRANSACTION)
+        return self._send_string(token=SE_COMMIT_TRANSACTION)
 
     def rollback(self):
         """
         rollback transaction
         """
-        return self._send_string(token=ROLLBACK_TRANSACTION)
+        return self._send_string(token=SE_ROLLBACK_TRANSACTION)
 
 # Miscellaneous public methods
 
@@ -422,10 +422,12 @@ class SednaProtocol(object):
 
         Set this within a transaction.
         """
-        token = SET_SESSION_OPTIONS
+        token = SE_SET_SESSION_OPTIONS
         data = pack("!I",DEBUG_ON)+zString('')
         self._send_string(data,token)
 
+    def setDebugHandler(self,fn):
+        self.handleDebug = fn
 
     def handleDebug(self,debugInfo):
         """Handle debug information.
@@ -446,9 +448,9 @@ class SednaProtocol(object):
 
         Also sent within a transaction.
         """
-        token = SET_SESSION_OPTIONS
+        token = SE_SET_SESSION_OPTIONS
         data = pack("!I",DEBUG_OFF)+zString('')
-        self.result = Result(self)
+
         self._send_string(data,token)
 
     def traceOn(self):
@@ -461,7 +463,7 @@ class SednaProtocol(object):
         """
         Put session options back to default.
         """
-        self._send_string(token=RESET_SESSION_OPTIONS)
+        self._send_string(token=SE_RESET_SESSION_OPTIONS)
 
 # init
 
@@ -476,42 +478,42 @@ class SednaProtocol(object):
         # right side is the local callback for the body associated
         # with that token.
         self.handlers = {
-            SEND_SESSION_PARAMETERS : self._sendSessionParameters,
-            SEND_AUTH_PARAMETERS : self._sendAuthParameters,
-            AUTHENTICATION_OK : self._authenticationOK,
-            AUTHENTICATION_FAILED : self._authenticationFailed,
+            SE_SEND_SESSION_PARAMETERS : self._sendSessionParameters,
+            SE_SEND_AUTH_PARAMETERS : self._sendAuthParameters,
+            SE_AUTHENTICATION_OK : self._authenticationOK,
+            SE_AUTHENTICATION_FAILED : self._authenticationFailed,
 
-            ERROR_RESPONSE : self._errorResponse,
+            SE_ERROR_RESPONSE : self._errorResponse,
 
-            QUERY_SUCCEEDED : self._querySucceeded,
-            QUERY_FAILED : self._queryFailed,
-            UPDATE_SUCCEEDED : self._updateSucceeded,
-            UPDATE_FAILED : self._updateFailed,
+            SE_QUERY_SUCCEEDED : self._querySucceeded,
+            SE_QUERY_FAILED : self._queryFailed,
+            SE_UPDATE_SUCCEEDED : self._updateSucceeded,
+            SE_UPDATE_FAILED : self._updateFailed,
 
-            BULKLOAD_FILENAME : self._bulkloadFilename,
-            BULKLOAD_FROMSTREAM : self._bulkloadFromstream,
-            BULKLOAD_SUCCEEDED : self._bulkloadSucceeded,
-            BULKLOAD_FAILED : self._bulkloadFailed,
+            SE_BULKLOAD_FILENAME : self._bulkloadFilename,
+            SE_BULKLOAD_FROMSTREAM : self._bulkloadFromstream,
+            SE_BULKLOAD_SUCCEEDED : self._bulkloadSucceeded,
+            SE_BULKLOAD_FAILED : self._bulkloadFailed,
 
-            BEGIN_TRANSACTION_OK : self._beginTransactionOK,
-            BEGIN_TRANSACTION_FAILED : self._beginTransactionFailed,
-            COMMIT_TRANSACTION_OK : self._commitTransactionOK,
-            COMMIT_TRANSACTION_FAILED : self._commitTransactionFailed,
-            ROLLBACK_TRANSACTION_OK : self._rollbackTransactionOK,
-            ROLLBACK_TRANSACTION_FAILED : self._rollbackTransactionFailed,
+            SE_BEGIN_TRANSACTION_OK : self._beginTransactionOK,
+            SE_BEGIN_TRANSACTION_FAILED : self._beginTransactionFailed,
+            SE_COMMIT_TRANSACTION_OK : self._commitTransactionOK,
+            SE_COMMIT_TRANSACTION_FAILED : self._commitTransactionFailed,
+            SE_ROLLBACK_TRANSACTION_OK : self._rollbackTransactionOK,
+            SE_ROLLBACK_TRANSACTION_FAILED : self._rollbackTransactionFailed,
 
-            DEBUG_INFO : self._debugInfo,
-            ITEM_PART : self._itemPart,
-            ITEM_END : self._itemEnd,
-            RESULT_END : self._resultEnd,
+            SE_DEBUG_INFO : self._debugInfo,
+            SE_ITEM_PART : self._itemPart,
+            SE_ITEM_END : self._itemEnd,
+            SE_RESULT_END : self._resultEnd,
 
-            LAST_QUERY_TIME : self._lastQueryTime,
+            SE_LAST_QUERY_TIME : self._lastQueryTime,
 
-            CLOSE_CONNECTION_OK : self._closeConnectionOK,
-            TRANSACTION_ROLLBACK_BEFORE_CLOSE : \
+            SE_CLOSE_CONNECTION_OK : self._closeConnectionOK,
+            SE_TRANSACTION_ROLLBACK_BEFORE_CLOSE : \
                 self._transactionRollbackBeforeClose,
-            SET_SESSION_OPTIONS_OK : self._setSessionOptionsOK,
-            RESET_SESSION_OPTIONS_OK : self._resetSessionOptionsOK
+            SE_SET_SESSION_OPTIONS_OK : self._setSessionOptionsOK,
+            SE_RESET_SESSION_OPTIONS_OK : self._resetSessionOptionsOK
 
         }
         try:
@@ -530,7 +532,7 @@ class SednaProtocol(object):
             self.socket.setsockopt(socket.SOL_TCP,socket.TCP_NODELAY,0)
         # start handshaking and authenticating
         self.closed = False
-        self._send_string(token=START_UP)
+        self._send_string(token=SE_START_UP)
 
 # the rest of the module is non-public methods
 
@@ -561,7 +563,7 @@ class SednaProtocol(object):
         # utf-8 encoded string
         if not isinstance(data,str):
             raise InterfaceError (u"Expected string, got %s." % data)
-        if token in (EXECUTE, EXECUTE_LONG):
+        if token in (SE_EXECUTE, SE_EXECUTE_LONG):
             self.result = None
             datalen = len(data)
             if datalen+self.prefixLength > self.maxQueryLength:
@@ -569,10 +571,10 @@ class SednaProtocol(object):
                 for split in splitString(data,LOAD_BUFFER_SIZE):
                     # each of these this is not a final request, so we
                     # set respond to False
-                    self._send_string(split,token=EXECUTE_LONG,format=format,
+                    self._send_string(split,token=SE_EXECUTE_LONG,format=format,
                         respond=False)
                 # send a message to end the request
-                self._send_string(token=LONG_QUERY_END)
+                self._send_string(token=SE_LONG_QUERY_END)
                 # return here to prevent endless recursion...
                 return
             # if we are doing EXECUTE or EXECUTE_LONG, we need to prefix the
@@ -583,12 +585,14 @@ class SednaProtocol(object):
         self._sendSocketData(pack(self.headerFormat,int(token),len(data)
             ) + data)
         if self.doTrace:
-            if token in (EXECUTE, EXECUTE_LONG):
+            if token in (SE_EXECUTE, SE_EXECUTE_LONG):
                 trace = data[6:]
+            elif token == SE_SET_SESSION_OPTIONS:
+                trace = ''
             else:
                 trace = data[5:]
             if trace:
-                logger.debug("(C) %s: %s" % (codes[token],
+                logger.debug("(C) %s %s" % (codes[token],
                     trace.strip()))
             else:
                 logger.debug("(C) %s" % codes[token])
@@ -610,9 +614,12 @@ class SednaProtocol(object):
         msg = self._getSocketData(length)
         # handlers are call-backs after the data are received
         if self.doTrace:
-            z = msg[5:]
+            if token == SE_ERROR_RESPONSE:
+                z = msg[6:]
+            else:
+                z = msg[5:]
             if z:
-                 logger.debug("(S) %s: %s" % (codes[token], z.strip()))
+                logger.debug("(S) %s %s" % (codes[token], z.strip()))
             else:
                 logger.debug("(S) %s" % codes[token])
         return self.handlers[token](msg)
@@ -655,7 +662,7 @@ class SednaProtocol(object):
 # start-up
 
     def _sendSessionParameters(self,msg):
-        token = SESSION_PARAMETERS
+        token = SE_SESSION_PARAMETERS
         msg = pack('!bb',SEDNA_VERSION_MAJOR,SEDNA_VERSION_MINOR) \
             + zString(self.username) + zString(self.database)
         self._send_string(msg, token)
@@ -663,7 +670,7 @@ class SednaProtocol(object):
 # authentication
 
     def _sendAuthParameters(self,msg):
-        token = AUTHENTICATION_PARAMETERS
+        token = SE_AUTHENTICATION_PARAMETERS
         msg = zString(self.password)
         self._send_string(msg,token)
 
@@ -685,7 +692,7 @@ class SednaProtocol(object):
         self.inTransaction = False
         if error.sednaCode.startswith('FO'):
             #logger.error(error.info)
-            self.ermsgs .append(error.info)
+            self.ermsgs.append(error.info)
             self._get_response()
         else:
             self.ermsgs.append(error.info)
@@ -745,7 +752,7 @@ class SednaProtocol(object):
         used in _bulkloadFilename and _bulkloadFromstream
         """
         data = filelike.read(LOAD_BUFFER_SIZE)
-        token = BULKLOAD_PORTION
+        token = SE_BULKLOAD_PORTION
         while data:
             if isinstance(data,unicode):
                 # this should be acceptable. sockets cannot handle
@@ -755,7 +762,7 @@ class SednaProtocol(object):
             self._send_string(data,token,respond=False)
             data = filelike.read(LOAD_BUFFER_SIZE)
         filelike.close()
-        self._send_string(token=BULKLOAD_END)
+        self._send_string(token=SE_BULKLOAD_END)
 
     def _bulkloadFilename(self,msg):
         """
@@ -817,10 +824,7 @@ class SednaProtocol(object):
 
         """
         di = DebugInfo(msg)
-        try:
-            self.handleDebug(di)
-        except AttributeError:
-            pass
+        #self.handleDebug(di)
         self.ermsgs.append(di.info)
         self._get_response()
 
