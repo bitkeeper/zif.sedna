@@ -97,7 +97,7 @@ def normalizeMessage(message):
     n = []
     for k in message.split('\n'):
         n.append(k.rstrip().replace('\t','    '))
-    return u'\n'.join(n)
+    return u'\n'.join(n).strip()
 
 
 class BasicCursor(object):
@@ -162,13 +162,8 @@ class Result(object):
     result.time is a string with the server processing time. This is perhaps
         useful for optimizing queries.
 
-    result.tostring() or str(result) returns the entire result as a
+    result.value returns the entire result as a
         utf-8 encoded string
-
-    result.tounicode() returns the result as a python unicode string
-
-    result.debug contains Debug objects with .code  and .info members.  This
-        will only have contents if debug mode is on.
 
     """
 
@@ -190,12 +185,13 @@ class Result(object):
     time = property(getTime)
 
     def next(self):
+        currItem = self.item
         if self.more:
             self.conn._send_string(token=SE_GET_NEXT_ITEM)
-        if self.item is None:
+        if currItem is None:
             raise StopIteration
         else:
-            return self.item.decode('utf-8')
+            return currItem.decode('utf-8')
 
     def _get_value(self):
         return u''.join(list(self))
@@ -216,8 +212,9 @@ class ErrorInfo(object):
 
 
 class DebugInfo(ErrorInfo):
-    pass
-
+    def __init__(self,msg):
+        self.code = None
+        self.info = "%s" % normalizeMessage(msg[9:].strip())
 
 class DatabaseError(Exception):
     def __init__(self,item):
@@ -432,7 +429,9 @@ class SednaProtocol(object):
     def handleDebug(self,debugInfo):
         """Handle debug information.
 
-        if you want to deal with debug info, override this method.
+        if you want to deal with debug info, override this or
+        use setDebugHandler, above.
+
         This method will be called with a DebugInfo object when debug info is
         available as part of a query result.
 
@@ -614,12 +613,12 @@ class SednaProtocol(object):
         msg = self._getSocketData(length)
         # handlers are call-backs after the data are received
         if self.doTrace:
-            if token == SE_ERROR_RESPONSE:
-                z = msg[6:]
+            if token in (SE_ERROR_RESPONSE, SE_DEBUG_INFO):
+                z = msg[9:]
             else:
                 z = msg[5:]
             if z:
-                logger.debug("(S) %s %s" % (codes[token], z.strip()))
+                logger.debug("(S) %s %s" % (codes[token], normalizeMessage(z)))
             else:
                 logger.debug("(S) %s" % codes[token])
         return self.handlers[token](msg)
@@ -686,18 +685,10 @@ class SednaProtocol(object):
 
     def _errorResponse(self,msg):
         error = ErrorInfo(msg)
-        # with FOnnnn errors we actually get more than one error,
-        #  one for an XPath error,
-        #  and a final one for the failure to retrieve NEXT_ITEM
         self.inTransaction = False
-        if error.sednaCode.startswith('FO'):
-            #logger.error(error.info)
-            self.ermsgs.append(error.info)
-            self._get_response()
-        else:
-            self.ermsgs.append(error.info)
-            error.info = '\n'.join(self.ermsgs)
-            raise DatabaseError(error)
+        self.ermsgs.append(error.info)
+        error.info = '\n'.join(self.ermsgs)
+        raise DatabaseError(error)
 
 # transactions - receivers
 
@@ -729,6 +720,7 @@ class SednaProtocol(object):
 
     def _querySucceeded(self,msg):
         self.result = Result(self)
+        self._get_response()
         return self.result
 
     def _queryFailed(self,msg):
@@ -819,12 +811,15 @@ class SednaProtocol(object):
         """
         package a DEBUG_INFO message for client handler.
 
-        client should provide the actual handleDebug method,
+        client may provide a handleDebug method, using setDebugHandler(fn)
         regardless, debug info ends up in the traceback if enabled.
 
         """
         di = DebugInfo(msg)
-        #self.handleDebug(di)
+        try:
+            self.handleDebug(di)
+        except NotImplementedError:
+            pass
         self.ermsgs.append(di.info)
         self._get_response()
 

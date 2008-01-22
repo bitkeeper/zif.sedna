@@ -362,7 +362,7 @@ Starting a new connection here.
 Error handling.  Let's try to catch a DatabaseError.
 This should be an XQuery syntax error, so will be caught right when the
 request is sent.
-    >>> conn.begin()
+
     >>> try:
     ...     result = conn.execute(u'hello world')
     ... except protocol.DatabaseError,e:
@@ -376,21 +376,6 @@ Now for errors in 'valid' but troublesome queries, errors that happen while the
 result is being generated.  The lesson I learn here is "keep it simple".
 YMMV. :)
 
-    >>> conn.begin()
-
-For a full idea of the client-server communication, set traceOn().  We'll
-log to stdout here.  Trace happens at logging.DEBUG level.
-
-    >>> import logging
-    >>> import sys
-    >>> logging.basicConfig(stream=sys.stdout)
-    >>> log = logging.getLogger()
-    >>> log.setLevel(logging.DEBUG)
-
-We turn on tracing
-
-    >>> conn.traceOn()
-
 Here's a query that fails at run-time.
 
     >>> qry = u'''(: In this query dynamic error will be raised   :)
@@ -402,70 +387,49 @@ Here's a query that fails at run-time.
     ... local:f()
     ... '''
     >>> result = conn.execute(qry)
-    DEBUG:root:(C) SE_EXECUTE (: In this query dynamic error will be raised   :)
-    (: due to "aaaa" is not castable to xs:integer. :)
-    declare function local:f()
-    {
-    "aaaa" cast as xs:integer
-    };
-    local:f()
-    DEBUG:root:(S) SE_QUERY_SUCCEEDED
-
-Tracing gives a representation of the internal client-server interaction.
-(C) messages are sent by the client, and (S) messages are the server's response.
-Above, we see the client sending the query, and the server's response.
-
-The server says above that the query succeeds, but when we try to get the
-value, a terrible thing happens.
-
-    >>> print result.value
     Traceback (most recent call last):
     ...
     DatabaseError: [112] SEDNA Message: ERROR FORG0001
         Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
-    [413] SEDNA Message: ERROR SE4614
-    There is no next item of the user's query.
 
 We get an error, but this is not as helpful as it can be.  We set debugOn to
 get a bit more info.
 
-    >>> conn.debugOn()
-    DEBUG:root:(C) SE_SET_SESSION_OPTIONS
-    DEBUG:root:(S) SE_SET_SESSION_OPTIONS_OK
+We turn on debug messages.
 
-Retry the same query.
+    >>> conn.debugOn()
+
+Retry the same query. Now, when we get the traceback, there is a bit more info
+that is maybe helpful.
 
     >>> result = conn.execute(qry)
-    DEBUG:root:(C) SE_BEGIN_TRANSACTION
-    DEBUG:root:(S) SE_BEGIN_TRANSACTION_OK
-    DEBUG:root:(C) SE_EXECUTE (: In this query dynamic error will be raised   :)
-    (: due to "aaaa" is not castable to xs:integer. :)
-    declare function local:f()
-    {
-    "aaaa" cast as xs:integer
-    };
-    local:f()
-    DEBUG:root:(S) SE_QUERY_SUCCEEDED
-
-Now, when we get the traceback, there is a bit more info that is maybe more
-helpful.
-
-    >>> print result.value
     Traceback (most recent call last):
     ...
-    DatabaseError: [1] PPCast : 1
-    [1] PPFunCall : 1 : http://www.w3.org/2005/xquery-local-functions:f
+    DatabaseError: PPCast : 1
+    PPFunCall : 1 : http://www.w3.org/2005/xquery-local-functions:f
     [112] SEDNA Message: ERROR FORG0001
         Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
-    [413] SEDNA Message: ERROR SE4614
-    There is no next item of the user's query.
-    >>> conn.debugOff()
-    DEBUG:root:(C) SE_SET_SESSION_OPTIONS
-    DEBUG:root:(S) SE_SET_SESSION_OPTIONS_OK
 
-This is an example of a less contentious session.
+    >>> conn.debugOff()
+
+For a full idea of the client-server communication, set traceOn().  We'll
+log to stdout here.  Trace happens at logging.DEBUG level.
+
+    >>> import logging
+    >>> import sys
+    >>> logging.basicConfig(stream=sys.stdout)
+    >>> log = logging.getLogger()
+    >>> log.setLevel(logging.DEBUG)
+
+Tracing gives a representation of the internal client-server interaction.
+(C) messages are sent by the client, and (S) messages are the server's response.
+Now, we see the client sending the query, and the server's response.
+
+We turn on tracing and see the exchange.
+
+    >>> conn.traceOn()
 
     >>> qry = '''for $item in document("BS")//book
     ... let $price := round-half-to-even($item/price * 1.1,2)
@@ -479,13 +443,16 @@ This is an example of a less contentious session.
     where $item/title = "Learning XML"
     return <price>{$price}</price>
     DEBUG:root:(S) SE_QUERY_SUCCEEDED
-    >>> print data.value
-    DEBUG:root:(C) SE_GET_NEXT_ITEM
     DEBUG:root:(S) SE_ITEM_PART <price>43.95</price>
     DEBUG:root:(S) SE_ITEM_END
+
+    >>> print data.value
     DEBUG:root:(C) SE_GET_NEXT_ITEM
     DEBUG:root:(S) SE_RESULT_END
     <price>43.95</price>
+
+We can turn tracing back off and commit our session.
+
     >>> conn.traceOff()
     >>> conn.commit()
     True
