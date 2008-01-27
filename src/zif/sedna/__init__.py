@@ -1,1 +1,1 @@
-#python package sedna
+#python package zif.sedna
