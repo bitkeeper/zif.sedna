@@ -8,7 +8,7 @@ license and may be obtained from
 http://modis.ispras.ru/sedna/
 
 The tests here assume a running Sedna database on localhost named 'test' with
-the default login, 'SYSTEM' and password, 'MANAGER'
+the default login, 'SYSTEM' and passwd, 'MANAGER'
 
     1.  start sedna governor
     $ se_gov
@@ -21,25 +21,26 @@ Change these if necessary to match your system.
 You may also wish to tailf [directory-where-sedna-is ]/data/event.log to
 monitor what the server is doing.
 
-    >>> username = 'SYSTEM'
-    >>> password = 'MANAGER'
-    >>> database = 'test'
+    >>> login = 'SYSTEM'
+    >>> passwd = 'MANAGER'
+    >>> db = 'test'
     >>> port = 5050
     >>> host = 'localhost'
     >>> sedna_version = '2.2'
     >>> sedna_build = '141'
+    >>> trace = True
 
     >>> import protocol
 
 We do a connection:
 
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.close()
 
 If login fails, you get a DatabaseError.
 
-    >>> bad_password = 'hello'
-    >>> conn = protocol.SednaProtocol(host,port,username,bad_password,database)
+    >>> bad_passwd = 'hello'
+    >>> conn = protocol.SednaProtocol(host,db,login,bad_passwd,port)
     Traceback (most recent call last):
     ...
     OperationalError: [226] SEDNA Message: ERROR SE3053
@@ -49,7 +50,7 @@ Let's get the Sedna version.  This is a query that "always works".  There are
 a bunch of document('$something') queries available that yield system
 information.
 
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.begin()
     >>> result = conn.execute(u'document("$version")')
     >>> result.value == '<sedna version="%s" build="%s"/>' % (sedna_version,
@@ -64,7 +65,7 @@ automatically when you query and have not already sent begin().
 For the list of documents and collections in the current database, we use
 connection.documents
 
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> db_docs = conn.documents
     >>> if not 'region' in db_docs:
     ...     z = conn.execute(u'LOAD "example/region.xml" "region"')
@@ -306,7 +307,7 @@ OK. Update succeeded.  Let's see the new item.
     >>> conn.close()
 
 What about rollbacks? Let's try one.
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.begin()
     >>> qry = u'document("BS")//book[title="Learning XML"]/quality'
     >>> result = conn.execute(qry)
@@ -328,7 +329,7 @@ We rollback
     >>> conn.close()
 
 We reopen the database just to be sure that we are not looking at a cache.
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.begin()
     >>> data = conn.execute(qry)
 
@@ -357,7 +358,7 @@ The default format is 0, XML.  1 gives us SXML.
 
 Starting a new connection here.
 
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
 
 Error handling.  Let's try to catch a DatabaseError.
 This should be an XQuery syntax error, so will be caught right when the
@@ -436,19 +437,19 @@ We turn on tracing and see the exchange.
     ... where $item/title = "Learning XML"
     ... return <price>{$price}</price>'''
     >>> data = conn.execute(qry)
-    DEBUG:root:(C) SE_BEGIN_TRANSACTION
-    DEBUG:root:(S) SE_BEGIN_TRANSACTION_OK
-    DEBUG:root:(C) SE_EXECUTE for $item in document("BS")//book
+    DEBUG:root:(C) SEDNA_BEGIN_TRANSACTION
+    DEBUG:root:(S) SEDNA_BEGIN_TRANSACTION_OK
+    DEBUG:root:(C) SEDNA_EXECUTE for $item in document("BS")//book
     let $price := round-half-to-even($item/price * 1.1,2)
     where $item/title = "Learning XML"
     return <price>{$price}</price>
-    DEBUG:root:(S) SE_QUERY_SUCCEEDED
-    DEBUG:root:(S) SE_ITEM_PART <price>43.95</price>
-    DEBUG:root:(S) SE_ITEM_END
+    DEBUG:root:(S) SEDNA_QUERY_SUCCEEDED
+    DEBUG:root:(S) SEDNA_ITEM_PART <price>43.95</price>
+    DEBUG:root:(S) SEDNA_ITEM_END
 
     >>> print data.value
-    DEBUG:root:(C) SE_GET_NEXT_ITEM
-    DEBUG:root:(S) SE_RESULT_END
+    DEBUG:root:(C) SEDNA_GET_NEXT_ITEM
+    DEBUG:root:(S) SEDNA_RESULT_END
     <price>43.95</price>
 
 We can turn tracing back off and commit our session.
@@ -462,7 +463,7 @@ Reset the log level
     >>> log.setLevel(logging.ERROR)
 
 Final cleanup. We'll remove the local documents.
-    >>> conn = protocol.SednaProtocol(host,port,username,password,database)
+    >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.begin()
     >>> for doc in ['region','BS']:
     ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc)

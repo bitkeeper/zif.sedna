@@ -1,4 +1,8 @@
 #Sedna Document and Collection classes
+
+# these are probably useless in production, but probably OK
+# for administration.
+
 from lxml.etree import Element, fromstring, tounicode, _Element
 
 class SednaCollection(object):
@@ -35,7 +39,7 @@ class SednaCollection(object):
         else:
             raise conn.ProgrammingError('No name to drop')
     @property
-    def sid(self):
+    def _sid(self):
         """
         the first part of a query relating to this entity.
 
@@ -51,13 +55,13 @@ class SednaCollection(object):
         and an index indicating the item's index inside the query.  Presumably,
         this xpath may be used to identify the item for updating.
         """
-        result = self.connection.execute("%s%s" % (self.sid,query))
+        result = self.connection.execute("%s%s" % (self._sid,query))
         theList = []
         count = 0
         for item in result:
             count += 1
             item = fromstring(item)
-            item.set('sedna_xpath',"%s%s[%s]" % (self.sid,query,count))
+            item.set('sedna_xpath',"%s%s[%s]" % (self._sid,query,count))
             theList.append(item)
         return theList
 
@@ -76,15 +80,15 @@ class SednaCollection(object):
         Perform an xquery on this document or collection.
 
         If the query returns data, Output will be a iterable of unicode
-        strings that should be well-formed and parseable.
+        strings.
         """
-        return self.connection.query('%s%s' % (self.sid,query))
+        return self.connection.query('%s%s' % (self._sid,query))
 
     def addDocumentFromString(self,doc_name,s):
         if isinstance(s,_Element):
             s = tounicode(s)
         if not s:
-            raise self.conn.ProgrammingError('needed XML, got (%s)' % s)
+            raise self.conn.ProgrammingError('expected XML, got (%s)' % s)
         self.connection.loadText(s,doc_name,self.collection)
 
     def addDocumentFromFile(self,doc_name,file_path):
@@ -102,7 +106,6 @@ class SednaCollection(object):
     def rollback(self):
         self.connection.rollback()
 
-    #def insert(self)
 
 
 class SednaDocument(SednaCollection):
@@ -112,7 +115,7 @@ class SednaDocument(SednaCollection):
         self.collection = collection_name
 
     @property
-    def sid(self):
+    def _sid(self):
         """
         the first part of a query relating to this entity.
 
