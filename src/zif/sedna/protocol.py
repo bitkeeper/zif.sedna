@@ -8,12 +8,12 @@ functionalities can be employed by other modules.
 Usage:
     init a Protocol with host, port, username, password, and database.
 
-    conn = Protocol(host,port,username,password,database)
-        host: string
-        port: int
-        username: string
-        password: string
-        database: string - Sedna databases hold XML documents and collections.
+    conn = Protocol(host,db,login,passwd,port)
+        host: string - hostname or ip address
+        db: string - Sedna databases hold XML documents and collections.
+        login: string
+        passwd: string
+        port: int - default: 5050
 
     conn.begin()  - start a transaction
     conn.commit() - commit a transaction
@@ -231,11 +231,11 @@ class SednaProtocol(object):
     """Sedna protocol
 
     init with
-    host         string host ip address
-    port         int    port for connection
-    username     string user name
-    password     string user password
-    database     string sedna database name to connect to
+    host         string host name or ip address
+    db           string sedna database name to connect to
+    login        string user name
+    passwd       string user password
+    port         int    port for connection default:5050
 
     Exceptions are raised when operations fail.
 
