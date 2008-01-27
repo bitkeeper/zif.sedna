@@ -1,5 +1,5 @@
 ****************
-zif.pants
+zif.sedna
 ****************
 
 See 'src/zif/sedna/README.txt' for more information.
@@ -9,8 +9,7 @@ Releases
 ********
 
 ================
-0.1 alpha (2008/09/15)
+0.2 alpha (2008/01/27)
 ================
 
-Initial release.
 

@@ -5,7 +5,7 @@ Copyright (c) 2007, Virginia Polytechnic Institute and State University
 All rights reserved. Refer to LICENSE.txt for details of distribution and use.
 
 Distutils setup
- 
+
 """
 
 import os
@@ -16,7 +16,7 @@ def read(*rnames):
 
 setup(
     name = 'zif.sedna',
-    version = '0.1dev',
+    version = '0.2dev',
     license = 'BSD',
     description = 'Sedna connector from the zif collective',
     long_description = (
@@ -37,7 +37,7 @@ setup(
     packages = find_packages('src'),
     package_dir = {'':'src'},
     namespace_packages = ['zif'],
-    install_requires = ['setuptools','lxml>=2.0alpha2','elementtree'],
+    install_requires = ['setuptools','elementtree'],
     include_package_data = True,
     zip_safe = False,
     )

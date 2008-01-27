@@ -18,7 +18,7 @@ the default login, 'SYSTEM' and passwd, 'MANAGER'
     $ se_sm test
 
 Change these if necessary to match your system.
-You may also wish to tailf [directory-where-sedna-is ]/data/event.log to
+You may also wish to tailf [sedna-directory]/data/event.log to
 monitor what the server is doing.
 
     >>> login = 'SYSTEM'
@@ -367,15 +367,13 @@ request is sent.
     >>> try:
     ...     result = conn.execute(u'hello world')
     ... except protocol.DatabaseError,e:
-    ...     err =  e.info
-    ...     print err
+    ...     print e
     [3] SEDNA Message: ERROR XPST0003
         It is a static error if an expression is not a valid instance of the grammar defined in A.1 EBNF.
     Details: syntax error at token: 'world', line: 1
 
 Now for errors in 'valid' but troublesome queries, errors that happen while the
-result is being generated.  The lesson I learn here is "keep it simple".
-YMMV. :)
+result is being generated.
 
 Here's a query that fails at run-time.
 

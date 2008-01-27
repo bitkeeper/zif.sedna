@@ -44,6 +44,7 @@ Usage:
 
 import socket
 from struct import pack, unpack, calcsize
+import time
 
 try:
     from cStringIO import cStringIO as StringIO
@@ -89,12 +90,14 @@ def splitString(text,length):
 def normalizeMessage(message):
     """
     un-tab and rstrip an informational message
+
+    tab-to-space replacement and rstripping helps with repeatable doctests
     """
     message = message.decode('utf-8')
     n = []
     for k in message.split('\n'):
         n.append(k.rstrip().replace('\t','    '))
-    return u'\n'.join(n).strip()
+    return u'\n'.join(n)
 
 
 
@@ -148,9 +151,8 @@ class BasicCursor(object):
         pass
 
     def close(self):
-        if self.connection.inTransaction:
-            self.connection.rollback()
-        del self.connection._cursor
+        self.connection = None
+
 
 class Result(object):
     """Object representing the result of a query. iterable.
@@ -284,7 +286,11 @@ class SednaProtocol(object):
         format is 0 for XML
                   1 for SXML
         """
+        # first, clear out previous stuff in case we are in a LRP
         self.ermsgs = []
+        self.currItem = []
+        self.result = None
+
         try:
             query = query.encode('utf-8')
         except UnicodeEncodeError,e:
@@ -298,21 +304,19 @@ class SednaProtocol(object):
     query = execute
 
     def close(self):
+        """close the connection"""
         if not self.closed:
             self._send_string(token=SEDNA_CLOSE_CONNECTION)
-            #except DatabaseError, e:
-                #import warnings
-                #warnings.warn('While closing connection, %s' % e.info)
-
             self.closed = True
 
     # dbi wants a cursor
 
-    def cursor(self,):
-        """basic cursor implementation"""
+    def cursor(self):
+        """return a cursor from cursorFactory"""
         self.ermsgs = []
-        self._cursor = self.cursorFactory(self)
-        return self._cursor
+        self.currItem = []
+        self.result = None
+        return self.cursorFactory(self)
 
     # transactions
 
@@ -591,8 +595,8 @@ class SednaProtocol(object):
                 for split in splitString(data,LOAD_BUFFER_SIZE):
                     # each of these this is not a final request, so we
                     # set respond to False
-                    self._send_string(split,token=SEDNA_EXECUTE_LONG,format=format,
-                        respond=False)
+                    self._send_string(split,token=SEDNA_EXECUTE_LONG,
+                        format=format,respond=False)
                 # send a message to end the request
                 self._send_string(token=SEDNA_LONG_QUERY_END)
                 # return here to prevent endless recursion...
@@ -616,6 +620,10 @@ class SednaProtocol(object):
                     trace.strip()))
             else:
                 logger.debug("(C) %s" % codes[token])
+        # Yield current timeslice to other threads. We're always waiting for a
+        # sedna server response at this point.  Overall a teeny bit better
+        # throughput.
+        time.sleep(0)
         if respond:
             return self._get_response()
 
@@ -661,20 +669,25 @@ class SednaProtocol(object):
                 raise InterfaceError("Socket connection broken.")
             totalsent += sent
 
+
     def _getSocketData(self,length):
         """
         get 'length' bytes from the socket
         """
         bufferLen = len(self.receiveBuffer)
         while bufferLen < length:
+            if bufferLen == 0:
+                # We don't have anything yet.
+                # Yield this processing time-slice to other threads.
+                time.sleep(0)
             try:
                 data = self.socket.recv(length-bufferLen)
             except socket.error,e:
                 raise InterfaceError('Error reading from socket: %s' % e)
             self.receiveBuffer += data
             bufferLen += len(data)
-        data = self.receiveBuffer[:length]
-        self.receiveBuffer = self.receiveBuffer[length:]
+        data, self.receiveBuffer = self.receiveBuffer[:length], \
+            self.receiveBuffer[length:]
         return data
 
 # handlers
@@ -744,6 +757,7 @@ class SednaProtocol(object):
 
     def _querySucceeded(self,msg):
         self.result = Result(self)
+        # sedna immediately sends the first part of the result, so get it.
         self._get_response()
         return self.result
 
@@ -806,10 +820,10 @@ class SednaProtocol(object):
 # Results processing
 
     def _itemPart(self,msg):
-        try:
-            c = self.currItem
-        except AttributeError:
-            c = self.currItem = []
+        """
+        part of a response is available
+        """
+        c = self.currItem
         # 5 is Int + byte
         c.append(msg[5:])
         # this is not the final answer, so ask for more...
@@ -824,7 +838,7 @@ class SednaProtocol(object):
         self.result.more = False
         if self.currItem:
             item = ''.join(self.currItem)
-            self.currItem = []
+            self.currItem = None
             self.result.item = item
         else:
             self.result.item = None
