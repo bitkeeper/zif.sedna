@@ -24,8 +24,7 @@ import weakref, time
 from dbapiexceptions import *
 # __jmw__ use python logging instead of sqlalchemy's
 import logging
-# __jmw__ copy of sqlalchemy.queue is copied locally
-#import queue as Queue
+# __jmw__ use python's queue instead of sqlalchemy's
 import Queue
 # __jmw__ use python cPickle instead of sqlalchemy's
 import cPickle as pickle
@@ -288,7 +287,7 @@ def _finalize_fairy(connection, connection_record, pool, ref=None):
         return
     if connection is not None:
         try:
-            #Zope takes care of rollback, and we do not want to do it twice.
+            # __jmw__ Zope takes care of rollback, and not nice to do it twice.
             #connection.rollback()
             # Immediately close detached instances
             if connection_record is None:

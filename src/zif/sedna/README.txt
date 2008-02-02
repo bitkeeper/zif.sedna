@@ -414,13 +414,13 @@ that is maybe helpful.
     >>> conn.debugOff()
 
 For a full idea of the client-server communication, set traceOn().  We'll
-log to stdout here.  Trace happens at logging.DEBUG level.
+log to stdout here.  Trace happens at logging.INFO level.
 
     >>> import logging
     >>> import sys
     >>> logging.basicConfig(stream=sys.stdout)
     >>> log = logging.getLogger()
-    >>> log.setLevel(logging.DEBUG)
+    >>> log.setLevel(logging.INFO)
 
 Tracing gives a representation of the internal client-server interaction.
 (C) messages are sent by the client, and (S) messages are the server's response.
@@ -435,19 +435,19 @@ We turn on tracing and see the exchange.
     ... where $item/title = "Learning XML"
     ... return <price>{$price}</price>'''
     >>> data = conn.execute(qry)
-    DEBUG:root:(C) SEDNA_BEGIN_TRANSACTION
-    DEBUG:root:(S) SEDNA_BEGIN_TRANSACTION_OK
-    DEBUG:root:(C) SEDNA_EXECUTE for $item in document("BS")//book
+    INFO:root:(C) SEDNA_BEGIN_TRANSACTION
+    INFO:root:(S) SEDNA_BEGIN_TRANSACTION_OK
+    INFO:root:(C) SEDNA_EXECUTE for $item in document("BS")//book
     let $price := round-half-to-even($item/price * 1.1,2)
     where $item/title = "Learning XML"
     return <price>{$price}</price>
-    DEBUG:root:(S) SEDNA_QUERY_SUCCEEDED
-    DEBUG:root:(S) SEDNA_ITEM_PART <price>43.95</price>
-    DEBUG:root:(S) SEDNA_ITEM_END
+    INFO:root:(S) SEDNA_QUERY_SUCCEEDED
+    INFO:root:(S) SEDNA_ITEM_PART <price>43.95</price>
+    INFO:root:(S) SEDNA_ITEM_END
 
     >>> print data.value
-    DEBUG:root:(C) SEDNA_GET_NEXT_ITEM
-    DEBUG:root:(S) SEDNA_RESULT_END
+    INFO:root:(C) SEDNA_GET_NEXT_ITEM
+    INFO:root:(S) SEDNA_RESULT_END
     <price>43.95</price>
 
 We can turn tracing back off and commit our session.
