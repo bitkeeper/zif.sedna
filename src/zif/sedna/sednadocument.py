@@ -5,6 +5,69 @@
 
 from lxml.etree import Element, fromstring, tounicode, _Element
 
+
+class SednaItem(object):
+    def __init__(self,IQ,idx,text):
+        self.value = text
+        self.index = idx
+        self.query = IQ
+    def replace(self,newValue):
+        self.query.connection.execute(u'UPDATE replace $v in %s with %s' % (
+            self.query+'['+self.index+']',tounicode(newValue)))
+
+class SednaResult(object):
+    def __init__(self,connection,query):
+        self.connection = connection
+        self.query = query
+        result = self.connection.xquery(query)
+        self.result = []
+        for index,item in enumerate(result):
+            self.result.append(IndexedItem(self,index+1,item))
+
+
+   def indexedQuery(self,query):
+        """return the results of a query.
+
+        each item returned from the query will be placed inside an <xpathitem>
+        element, This element has an 'xpath' attribute with the query
+        and an index indicating the item's index inside the query.  Presumably,
+        this xpath may be used to identify the item for updating.
+        """
+        result = self.connection.execute("%s%s" % (self._sid,query))
+        theList = []
+        count = 0
+        for item in result:
+            count += 1
+            item = fromstring(item)
+            item.set('sedna_xpath',"%s%s[%s]" % (self._sid,query,count))
+            theList.append(item)
+        return theList
+
+    def update(self,item):
+        conn = self.connection
+        xpath = item.get('sedna_xpath',None)
+        if not xpath:
+            raise self.connection.ProgrammingError(
+                'May only update xpath results')
+        del item.attrib['sedna_xpath']
+        conn.execute(u'UPDATE replace $v in %s with %s' % (
+            xpath,tounicode(item)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class SednaCollection(object):
     """
     a collection of documents in a Sedna database
@@ -47,7 +110,7 @@ class SednaCollection(object):
         """
         return u'collection("%s")' % (self.collection)
 
-    def xpath(self,query):
+    def indexedQuery(self,query):
         """return the results of a query.
 
         each item returned from the query will be placed inside an <xpathitem>

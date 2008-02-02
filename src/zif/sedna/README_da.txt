@@ -46,8 +46,9 @@ fetchall() is not necessary; you can iterate the result directly.
         p.text = k.strip()
 
 query result may be a boolean for updates, inserts, etc.  Otherwise, it is
-unicode text.  Here, we just got the text content in the query, but we could
-have returned the full "v" elements and parsed them with an XML parser.
+an iterable that produces python unicode strings.  Here, the xquery obtained
+the text content, but we could have written the query without "text()" and
+returned the full "v" elements and parsed them with an XML parser.
 
 Generally, failing queries will raise an exception.  Zope takes care of
 pooling connections and begin(), commit() / rollback().

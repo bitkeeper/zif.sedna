@@ -19,7 +19,7 @@ threadsafety = 2
 paramstyle = 'format'
 
 def connect(dsn=None,host=None,database=None,username=None,password=None,
-        port=5050):
+        port=5050,trace=False):
     """ we hope to have a dsn formatted like
         dbi://user:passwd@host:port/dbname
     """
@@ -35,5 +35,5 @@ def connect(dsn=None,host=None,database=None,username=None,password=None,
         password = (conn_info['password'])
     if conn_info['dbname']:
         database = (conn_info['dbname'])
-    return SednaProtocol(host,database,username,password,port)
+    return SednaProtocol(host,database,username,password,port,trace)
 

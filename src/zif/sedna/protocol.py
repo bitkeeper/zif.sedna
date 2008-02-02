@@ -305,7 +305,7 @@ class SednaProtocol(object):
 
     def close(self):
         """close the connection"""
-        if not self.closed:
+        if self.socket and not self.closed:
             self._send_string(token=SEDNA_CLOSE_CONNECTION)
             self.closed = True
 
@@ -538,6 +538,18 @@ class SednaProtocol(object):
             SEDNA_RESET_SESSION_OPTIONS_OK : self._resetSessionOptionsOK
 
         }
+
+        self.openSocket(host,port)
+
+        if trace:
+            self.traceOn()
+        self._send_string(token=SEDNA_START_UP)
+
+# the rest of the module is non-public methods
+
+# socket opening
+
+    def openSocket(self,host,port):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error,e:
@@ -554,11 +566,6 @@ class SednaProtocol(object):
             self.socket.setsockopt(socket.SOL_TCP,socket.TCP_NODELAY,0)
         # start handshaking and authenticating
         self.closed = False
-        if trace:
-            self.traceOn()
-        self._send_string(token=SEDNA_START_UP)
-
-# the rest of the module is non-public methods
 
 # communication with the server
 
@@ -616,10 +623,10 @@ class SednaProtocol(object):
             else:
                 trace = data[5:]
             if trace:
-                logger.debug("(C) %s %s" % (codes[token],
+                logger.info("(C) %s %s" % (codes[token],
                     trace.strip()))
             else:
-                logger.debug("(C) %s" % codes[token])
+                logger.info("(C) %s" % codes[token])
         # Yield current timeslice to other threads. We're always waiting for a
         # sedna server response at this point.  Overall a teeny bit better
         # throughput.
@@ -647,9 +654,9 @@ class SednaProtocol(object):
             else:
                 z = msg[5:]
             if z:
-                logger.debug("(S) %s %s" % (codes[token], normalizeMessage(z)))
+                logger.info("(S) %s %s" % (codes[token], normalizeMessage(z)))
             else:
-                logger.debug("(S) %s" % codes[token])
+                logger.info("(S) %s" % codes[token])
         return self.handlers[token](msg)
 
 # communications at a bit lower level
