@@ -15,7 +15,7 @@ import threading
 # the thread dies.  Under Paste, threads die periodically.
 #local = threading.local()
 
-connectionPool = pool.manage(dbapi,use_threadlocal=False)
+connectionPool = pool.manage(dbapi)
 
 #connectionPool = pool.manage(dbapi,poolclass=pool.SingletonThreadPool)
 
