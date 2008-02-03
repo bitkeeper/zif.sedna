@@ -25,6 +25,7 @@ from dbapiexceptions import *
 # __jmw__ use python logging instead of sqlalchemy's
 import logging
 # __jmw__ use python's queue instead of sqlalchemy's
+#import queue as Queue
 import Queue
 # __jmw__ use python cPickle instead of sqlalchemy's
 import cPickle as pickle
@@ -213,6 +214,7 @@ class _ConnectionRecord(object):
             for l in pool._on_connect:
                 l.connect(self.connection, self)
 
+
     def close(self):
         if self.connection is not None:
             if self.__pool._should_log_info:
@@ -282,6 +284,10 @@ class _ConnectionRecord(object):
     properties = property(lambda self: self.info,
                           doc="A synonym for .info, will be removed in 0.5.")
 
+    # __jmw__ added __del__ to nicely close connections when threads die
+    def __del__(self):
+        self.close()
+
 def _finalize_fairy(connection, connection_record, pool, ref=None):
     if ref is not None and connection_record.backref is not ref:
         return
@@ -330,6 +336,7 @@ class _ConnectionFairy(object):
 
     is_valid = property(lambda self:self.connection is not None)
 
+
     def _get_info(self):
         """An info collection unique to this DB-API connection."""
 
@@ -344,8 +351,6 @@ class _ConnectionFairy(object):
             except AttributeError:
                 self._detached_info = value = {}
                 return value
-
-
 
     info = property(_get_info)
     properties = property(_get_info)
@@ -394,7 +399,7 @@ class _ConnectionFairy(object):
                 return self
             # __jmw__ ??? sqlalchemy.exceptions.DisconnectionError
             # this is apparently never raised in sqlalchemy. Leave as is.
-            except exceptions.DisconnectionError, e:
+            except DatabaseError, e:
                 if self._pool._should_log_info:
                     self._pool.log(
                     "Disconnection detected on checkout: %s" % e)
@@ -458,6 +463,7 @@ class _CursorFairy(object):
 
     def __getattr__(self, key):
         return getattr(self.cursor, key)
+
 
 class SingletonThreadPool(Pool):
     """A Pool that maintains one connection per thread.

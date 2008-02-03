@@ -9,9 +9,15 @@ from zope.rdb.interfaces import IManageableZopeDatabaseAdapter
 import pool
 import dbapi
 
+import threading
+
 # use a module-level connection pool so the connections may survive when
 # the thread dies.  Under Paste, threads die periodically.
-connectionPool = pool.manage(dbapi)
+#local = threading.local()
+
+connectionPool = pool.manage(dbapi,use_threadlocal=False)
+
+#connectionPool = pool.manage(dbapi,poolclass=pool.SingletonThreadPool)
 
 DEFAULT_ENCODING = 'utf-8'
 
@@ -33,11 +39,13 @@ def identity(x):
     return x
 
 class SednaCursor(ZopeCursor):
+    """a zope.rdb.cursor with conversion disabled"""
 
     def _convertTypes(self,results):
         return results
 
-class SednaAdapterConnection(ZopeConnection):
+class SednaConnection(ZopeConnection):
+    """a zope.rdb.ZopeConnection with conversions disabled"""
 
     def getTypeInfo(self):
         return SednaTypeInfo()
@@ -49,36 +57,21 @@ class SednaAdapter(object):
     """This is zope.rdb.ZopeDatabaseAdapter, but not Persistent
 
     Since Sedna Adapter does not want any special conversions,
-    A SednaADapterConnection is returned instead of a
+    A SednaConnection is returned instead of a
     ZopeConnection.
 
     """
     implements(IManageableZopeDatabaseAdapter)
 
-    # We need to store our connections in a thread local to ensure that
-    # different threads do not accidently use the same connection. This
-    # is important when instantiating database adapters using
-    # rdb:provideConnection as the same ZopeDatabaseAdapter instance will
-    # be used by all threads.
-
-    _connections = threading.local()
+    # pool takes care of thread affinity, so getting connections is a
+    # matter of getting a connection from the pool.  Connections
+    # return to the pool when they expire.
 
     def __init__(self, dsn):
         self.setDSN(dsn)
         self._unique_id = '%s.%s.%s' % (
                 time.time(), random.random(), thread.get_ident()
                 )
-
-    def _get_v_connection(self):
-        """We used to store the ZopeConnection in a volatile attribute.
-           However this was not always thread safe.
-        """
-        return getattr(SednaAdapter._connections, self._unique_id, None)
-
-    def _set_v_connection(self, value):
-        setattr(SednaAdapter._connections, self._unique_id, value)
-
-    _v_connection = property(_get_v_connection, _set_v_connection)
 
     def _connection_factory(self):
         return connectionPool.connect(self.dsn)
@@ -91,20 +84,24 @@ class SednaAdapter(object):
         return self.dsn
 
     def connect(self):
-        self._v_connection = SednaAdapterConnection(
-        self._connection_factory(), self)
+        lock1 = threading.Lock()
+        lock1.acquire()
+        # let the other threads have a timeslice so they can see this lock
+        time.sleep(0)
+        self.connection = SednaConnection(self._connection_factory(), self)
+        lock1.release()
 
     def disconnect(self):
-        if self.isConnected():
-            self._v_connection.close()
-            self._v_connection = None
+        if self.isConnected:
+            self.connection.close()
+            self.connection = None
 
     def isConnected(self):
-        return self._v_connection is not None
+        return self.connection
 
     def __call__(self):
         self.connect()
-        return self._v_connection
+        return self.connection
 
     # Pessimistic defaults
     paramstyle = 'pyformat'
@@ -123,3 +120,5 @@ class SednaAdapter(object):
         'See IDBITypeInfo'
         return identity
 
+    #def __del__(self):
+        #self.disconnect()

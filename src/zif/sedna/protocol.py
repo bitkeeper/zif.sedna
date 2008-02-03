@@ -56,6 +56,8 @@ from elementtree import ElementTree
 # Sedna token constants
 from msgcodes import *
 
+
+
 # standard errors from PEP-249
 from dbapiexceptions import Error, Warning, InterfaceError, DatabaseError,\
 InternalError, OperationalError, ProgrammingError, IntegrityError,\
@@ -69,6 +71,9 @@ LOAD_BUFFER_SIZE = SEDNA_MAX_BODY_LENGTH / 2
 
 import logging
 logger = logging.getLogger()
+import threading
+
+threadlock = threading.Lock()
 
 # utility functions
 
@@ -290,7 +295,6 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
-
         try:
             query = query.encode('utf-8')
         except UnicodeEncodeError,e:
@@ -325,9 +329,12 @@ class SednaProtocol(object):
         start transaction
         """
         if not self.inTransaction:
+            lock = threadlock
+            lock.acquire()
             self._send_string(token=SEDNA_BEGIN_TRANSACTION)
-        else:
-            raise Warning('starting a session already in progress')
+            while not self.inTransaction:
+                time.sleep(0)
+            lock.release()
 
     beginTransaction = begin
 
@@ -335,13 +342,25 @@ class SednaProtocol(object):
         """
         commit transaction
         """
-        return self._send_string(token=SEDNA_COMMIT_TRANSACTION)
+        lock = threadlock
+        lock.acquire()
+        res = self._send_string(token=SEDNA_COMMIT_TRANSACTION)
+        while self.inTransaction:
+            time.sleep(0)
+        lock.release()
+        return res
 
     def rollback(self):
         """
         rollback transaction
         """
-        return self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
+        lock = threadlock
+        lock.acquire()
+        res = self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
+        while self.inTransaction:
+            time.sleep(0)
+        lock.release()
+        return res
 
     def endTransaction(self,how):
         """endTransaction from Sedna pydriver API"""
