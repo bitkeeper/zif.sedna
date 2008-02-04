@@ -19,6 +19,9 @@ connectionPool = pool.manage(dbapi)
 
 #connectionPool = pool.manage(dbapi,poolclass=pool.SingletonThreadPool)
 
+lock1 = threading.Lock()
+lock2 = threading.Lock()
+
 DEFAULT_ENCODING = 'utf-8'
 
 class SednaTypeInfo(object):
@@ -51,7 +54,10 @@ class SednaConnection(ZopeConnection):
         return SednaTypeInfo()
 
     def cursor(self):
-        return SednaCursor(self.conn.cursor(),self)
+        lock2.acquire()
+        curs =  SednaCursor(self.conn.cursor(),self)
+        lock2.release()
+        return curs
 
 class SednaAdapter(object):
     """This is zope.rdb.ZopeDatabaseAdapter, but not Persistent
@@ -84,7 +90,6 @@ class SednaAdapter(object):
         return self.dsn
 
     def connect(self):
-        lock1 = threading.Lock()
         lock1.acquire()
         # let the other threads have a timeslice so they can see this lock
         time.sleep(0)

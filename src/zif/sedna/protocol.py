@@ -329,12 +329,12 @@ class SednaProtocol(object):
         start transaction
         """
         if not self.inTransaction:
-            lock = threadlock
-            lock.acquire()
+            #lock = threadlock
+            #lock.acquire()
             self._send_string(token=SEDNA_BEGIN_TRANSACTION)
-            while not self.inTransaction:
-                time.sleep(0)
-            lock.release()
+            #while not self.inTransaction:
+                #time.sleep(0)
+            #lock.release()
 
     beginTransaction = begin
 
@@ -342,24 +342,24 @@ class SednaProtocol(object):
         """
         commit transaction
         """
-        lock = threadlock
-        lock.acquire()
+        #lock = threadlock
+        #lock.acquire()
         res = self._send_string(token=SEDNA_COMMIT_TRANSACTION)
-        while self.inTransaction:
-            time.sleep(0)
-        lock.release()
+        #while self.inTransaction:
+            #time.sleep(0)
+        #lock.release()
         return res
 
     def rollback(self):
         """
         rollback transaction
         """
-        lock = threadlock
-        lock.acquire()
+        #lock = threadlock
+        #lock.acquire()
         res = self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
-        while self.inTransaction:
-            time.sleep(0)
-        lock.release()
+        #while self.inTransaction:
+            #time.sleep(0)
+        #lock.release()
         return res
 
     def endTransaction(self,how):
