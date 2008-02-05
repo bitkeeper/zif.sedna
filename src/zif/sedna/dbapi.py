@@ -37,3 +37,4 @@ def connect(dsn=None,host=None,database=None,username=None,password=None,
         database = (conn_info['dbname'])
     return SednaProtocol(host,database,username,password,port,trace)
 
+

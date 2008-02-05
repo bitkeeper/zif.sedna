@@ -19,8 +19,7 @@ connectionPool = pool.manage(dbapi)
 
 #connectionPool = pool.manage(dbapi,poolclass=pool.SingletonThreadPool)
 
-lock1 = threading.Lock()
-lock2 = threading.Lock()
+lock = threading.Lock()
 
 DEFAULT_ENCODING = 'utf-8'
 
@@ -53,10 +52,13 @@ class SednaConnection(ZopeConnection):
     def getTypeInfo(self):
         return SednaTypeInfo()
 
+    def registerForTxn(self):
+        if not self._txn_registered:
+            self.conn.begin()
+            super(SednaConnection,self).registerForTxn()
+
     def cursor(self):
-        lock2.acquire()
         curs =  SednaCursor(self.conn.cursor(),self)
-        lock2.release()
         return curs
 
 class SednaAdapter(object):
@@ -90,11 +92,7 @@ class SednaAdapter(object):
         return self.dsn
 
     def connect(self):
-        lock1.acquire()
-        # let the other threads have a timeslice so they can see this lock
-        time.sleep(0)
         self.connection = SednaConnection(self._connection_factory(), self)
-        lock1.release()
 
     def disconnect(self):
         if self.isConnected:
@@ -105,7 +103,16 @@ class SednaAdapter(object):
         return self.connection
 
     def __call__(self):
-        self.connect()
+        """
+        we lock so other threads cannot get a connection while this
+        thread is getting a connection.  Two threads will not get the same
+        connection, presumably.
+        """
+        lock.acquire()
+        try:
+            self.connect()
+        finally:
+            lock.release()
         return self.connection
 
     # Pessimistic defaults

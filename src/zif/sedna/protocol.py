@@ -73,8 +73,6 @@ import logging
 logger = logging.getLogger()
 import threading
 
-threadlock = threading.Lock()
-
 # utility functions
 
 def zString(aString):
@@ -132,6 +130,8 @@ class BasicCursor(object):
         return [item for item in self.result]
 
     def fetchone(self):
+        while self.result is None:
+            time.sleep(0)
         try:
             return self.result.next()
         except StopIteration:
@@ -176,7 +176,7 @@ class Result(object):
         self.conn = conn
         self._time = None
         self.more = True
-        self.item = None
+        self.item = '_DUMMY_'
 
     def __iter__(self):
         return self
@@ -191,6 +191,8 @@ class Result(object):
 
     def next(self):
         currItem = self.item
+        if self.item == '_DUMMY_':
+            raise DatabaseError('Item not sent')
         if self.more:
             self.conn._send_string(token=SEDNA_GET_NEXT_ITEM)
         if currItem is None:
@@ -263,7 +265,7 @@ class SednaProtocol(object):
     notabs = False
     nonewlines = False
     doTrace = False
-    inTransaction = False
+    _inTransaction = False
     ermsgs = None
     cursorFactory = BasicCursor
 
@@ -295,6 +297,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
+	self.receiveBuffer = ''
         try:
             query = query.encode('utf-8')
         except UnicodeEncodeError,e:
@@ -320,6 +323,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
+	self.receiveBuffer = ''
         return self.cursorFactory(self)
 
     # transactions
@@ -328,6 +332,7 @@ class SednaProtocol(object):
         """
         start transaction
         """
+	self.lock.acquire()
         if not self.inTransaction:
             #lock = threadlock
             #lock.acquire()
@@ -344,6 +349,7 @@ class SednaProtocol(object):
         """
         #lock = threadlock
         #lock.acquire()
+	self.receiveBuffer = ''
         res = self._send_string(token=SEDNA_COMMIT_TRANSACTION)
         #while self.inTransaction:
             #time.sleep(0)
@@ -356,6 +362,7 @@ class SednaProtocol(object):
         """
         #lock = threadlock
         #lock.acquire()
+	self.receiveBuffer = ''
         res = self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
         #while self.inTransaction:
             #time.sleep(0)
@@ -563,6 +570,7 @@ class SednaProtocol(object):
         if trace:
             self.traceOn()
         self._send_string(token=SEDNA_START_UP)
+        self.lock = threading.Lock()
 
 # the rest of the module is non-public methods
 
@@ -678,6 +686,26 @@ class SednaProtocol(object):
                 logger.info("(S) %s" % codes[token])
         return self.handlers[token](msg)
 
+    def _getInTransaction(self):
+        return self._inTransaction
+
+    def _setInTransaction(self,bool):
+        """Cannot enter a transaction without the instance lock
+
+        Presumably, this enforces one transaction at a time...
+        """
+        if bool:
+            # block until lock is available
+	    # lock acquisition is in self.begin()
+            #self.lock.acquire()
+            self._inTransaction = bool
+        else:
+            self._inTransaction = bool
+            # release lock.  Transaction is complete.
+            self.lock.release()
+
+    inTransaction = property(_getInTransaction,_setInTransaction)
+
 # communications at a bit lower level
 
     def _sendSocketData(self,data):
@@ -710,6 +738,9 @@ class SednaProtocol(object):
                 data = self.socket.recv(length-bufferLen)
             except socket.error,e:
                 raise InterfaceError('Error reading from socket: %s' % e)
+            except OverflowError,e:
+                raise DatabaseError(u"%s (%s-%s=%s)" % (e,length,bufferLen,
+                length-bufferLen))
             self.receiveBuffer += data
             bufferLen += len(data)
         data, self.receiveBuffer = self.receiveBuffer[:length], \
@@ -746,7 +777,8 @@ class SednaProtocol(object):
 
     def _errorResponse(self,msg):
         error = ErrorInfo(msg)
-        self.inTransaction = False
+        if self.inTransaction:
+            self.inTransaction = False
         self.ermsgs.append(error.info)
         error.info = '\n'.join(self.ermsgs)
         raise SednaError(error)
@@ -758,7 +790,8 @@ class SednaProtocol(object):
 
     def _beginTransactionFailed(self,msg):
         error = ErrorInfo(msg)
-        self.inTransaction = False
+        if self.inTransaction:
+            self.inTransaction = False
         raise SednaError(error)
 
     def _commitTransactionOK(self,msg):
@@ -771,11 +804,13 @@ class SednaProtocol(object):
         raise SednaError(error)
 
     def _rollbackTransactionOK(self,msg):
-        self.inTransaction = False
+        if self.inTransaction:
+            self.inTransaction = False
         return True
 
     def _rollbackTransactionFailed(self,msg):
-        self.inTransaction = False
+        if self.inTransaction:
+            self.inTransaction = False
         error = ErrorInfo(msg)
         raise SednaError(error)
 
