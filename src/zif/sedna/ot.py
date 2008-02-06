@@ -18,8 +18,8 @@ conn = protocol.SednaProtocol(host,database,username,password,trace=True)
 
 docs = conn.documents
 
-qry2 = "doc('ot')//v[contains(., 'begat')]/text()"
-qry1 = 'for $item in doc("ot")//v'+\
+qry2 = u"doc('ot')//v[contains(., 'begat')]/text()"
+qry1 = u'for $item in doc("ot")//v'+\
     ' where contains($item,"begat") return $item'
 
 if not 'ot' in docs:

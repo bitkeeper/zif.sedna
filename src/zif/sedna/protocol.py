@@ -2,8 +2,11 @@
 Sedna Protocol Driver for Python
 
 A very synchronous communicator to a Sedna database,
-This is the basic protocol, Connection pooling, auto-commit, dbapi, and other
-functionalities can be employed by other modules.
+This is the basic protocol, with a Result object, a BasicCursor, and
+exceptions mostly in accordance with PEP-249.
+
+Connection pooling, auto-commit, dbapi, and other
+functionalities may be employed by other modules.
 
 Usage:
     init a Protocol with host, port, username, password, and database.
@@ -15,27 +18,30 @@ Usage:
         passwd: string
         port: int - default: 5050
 
-    conn.begin()  - start a transaction
-    conn.commit() - commit a transaction
+    conn.begin()    - start a transaction.  This protocol will automatically
+                      send this before the first query if necessary.
+    conn.commit()   - commit a transaction
     conn.rollback() - rollback a transaction
-    conn.close() - close the connection
+    conn.close()    - close the connection
+
     conn.loadText(source,doc_name) - load some text as doc_name
     conn.loadFile(filename,doc_name) - load a file as doc_name
 
     between begin and commit or rollback, execute queries on the database
 
-    conn.begin()
+    conn.begin() - optional.
     result = conn.execute('some_query')
 
     - queries are XQuery format. See Sedna and XQuery documentation.
       Besides retrieving, you can also insert, update, replace, etc.
 
-    - result is an iterable that returns strings.
-    - you may get the entire result with
-      str(result) -or- result,tostring() -or- result,tounicode()
+    - result is an iterable that returns python unicode strings.
 
-    - Sedna stores in utf-8, so queries should be utf-8 encoded strings, and
-      string results will be utf-8 encoded strings.
+    - you may obtain the entire result as a single string with result.value
+    - alternatively, list(result) can be used.
+
+    - Sedna stores its data in utf-8. Queries are encoded to utf-8 from python
+      unicode, so all queries must be python unicode strings.
 
     conn.commit()
     conn.close()
@@ -46,17 +52,34 @@ import socket
 from struct import pack, unpack, calcsize
 import time
 
-try:
-    from cStringIO import cStringIO as StringIO
-except ImportError:
-    from StringIO import StringIO
+from StringIO import StringIO
 
-from elementtree import ElementTree
+try:
+    import threading as _threading
+except ImportError:
+    import dummy_threading as _threading
+
+import logging
+logger = logging.getLogger()
+
+#we want an elementtree impl, but only for non-essential stuff. non-fatal
+try:
+    import lxml.etree as ET
+except ImportError:
+    try:
+        import xml.etree.ElementTree as ET
+    except ImportError:
+        try:
+            import cElementTree as ET
+        except ImportError:
+            try:
+                import elementtree.ElementTree as ET
+            except ImportError:
+                logger.error(
+'zif.sedna protocol wants an elementtree implementation for some functions.')
 
 # Sedna token constants
 from msgcodes import *
-
-
 
 # standard errors from PEP-249
 from dbapiexceptions import Error, Warning, InterfaceError, DatabaseError,\
@@ -69,11 +92,7 @@ SEDNA_MAX_BODY_LENGTH = 10240
 
 LOAD_BUFFER_SIZE = SEDNA_MAX_BODY_LENGTH / 2
 
-import logging
-logger = logging.getLogger()
-import threading
-
-# utility functions
+# local utility functions
 
 def zString(aString):
     """
@@ -103,8 +122,13 @@ def normalizeMessage(message):
     return u'\n'.join(n)
 
 
-
 class BasicCursor(object):
+    """a PEP-249-like cursor to a zif.sedna protocol object
+
+    You may override this by setting the connection's cursorFactory to
+    some other implementation.
+
+    """
     arraysize = 1
     rowcount = -1
     lastrowid = None
@@ -168,7 +192,7 @@ class Result(object):
         useful for optimizing queries.
 
     result.value returns the entire result as a
-        utf-8 encoded string
+        python unicode string
 
     """
 
@@ -212,9 +236,8 @@ class ErrorInfo(object):
         self.code, = unpack('!I',msg[:4])
         # two Ints and a byte = 9
         # normalize the info so it works reliably in doctests.
-        # the world makes sense again... :)
-        self.sednaCode = msg[msg.find(':')+8:msg.find('\n')]
-        #print "Sedna Code is %s" % self.sednaCode
+        # ahh.  the world makes sense again... :)
+        # self.sednaCode = msg[msg.find(':')+8:msg.find('\n')]
         self.info = "[%s] %s" % (self.code, normalizeMessage(msg[9:].strip()))
 
 
@@ -223,13 +246,14 @@ class DebugInfo(ErrorInfo):
         self.code = None
         self.info = "%s" % normalizeMessage(msg[9:].strip())
 
+
 class SednaError(object):
     def __init__(self,item):
         if isinstance(item,ErrorInfo):
             self.code = item.code
             self.info = item.info
         raise DatabaseError(self.info)
-        #super(SednaError,self).__init__(self.info)
+
 
 class DatabaseRuntimeError(SednaError):
     pass
@@ -300,6 +324,8 @@ class SednaProtocol(object):
 	self.receiveBuffer = ''
         if isinstance(query,unicode):
             query = query.encode('utf-8')
+        else:
+            raise ProgrammingError("Expected unicode, got %s." % type(query))
         if not self.inTransaction:
             self.begin()
         self.error = None
@@ -345,26 +371,16 @@ class SednaProtocol(object):
         """
         commit transaction
         """
-        #lock = threadlock
-        #lock.acquire()
-	self.receiveBuffer = ''
+        self.receiveBuffer = ''
         res = self._send_string(token=SEDNA_COMMIT_TRANSACTION)
-        #while self.inTransaction:
-            #time.sleep(0)
-        #lock.release()
         return res
 
     def rollback(self):
         """
         rollback transaction
         """
-        #lock = threadlock
-        #lock.acquire()
-	self.receiveBuffer = ''
+        self.receiveBuffer = ''
         res = self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
-        #while self.inTransaction:
-            #time.sleep(0)
-        #lock.release()
         return res
 
     def endTransaction(self,how):
@@ -394,12 +410,25 @@ class SednaProtocol(object):
 
         if collection_name is provided, document will go in that
         collection.
+
+        Just in case there is an <?xml preamble with an encoding, we run it
+        through an elementtree parser and presumably get unicode back.
+
+        If it's already unicode, no big deal...
+
         """
+        if not isinstance(text,unicode):
+            text = ET.tostring(ET.XML(text))
         self._inputBuffer = StringIO(text)
         s = u'LOAD STDIN "%s"' % document_name
         if collection_name:
             s += ' "%s"' % collection_name
-        return self.execute(s)
+        try:
+            res = self.execute(s)
+        finally:
+            #always clear input buffer
+            self._inputBuffer = ''
+        return res
 
 
     def loadFile(self,filename,document_name,collection_name=None):
@@ -443,7 +472,7 @@ class SednaProtocol(object):
         s = self.execute(u'doc("%s")' % loc)
         theList = []
         z = s.value
-        t = ElementTree.XML(z)
+        t = ET.XML(z)
         for item in t:
             name = item.get('name')
             theList.append(name)
@@ -568,7 +597,7 @@ class SednaProtocol(object):
         if trace:
             self.traceOn()
         self._send_string(token=SEDNA_START_UP)
-        self.lock = threading.Lock()
+        self.lock = _threading.Lock()
 
 # the rest of the module is non-public methods
 

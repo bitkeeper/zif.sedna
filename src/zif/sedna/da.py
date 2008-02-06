@@ -1,4 +1,13 @@
-import time, random, thread, threading
+import time, random, thread
+
+try:
+    import threading as _threading
+except ImportError:
+    import dummy_threading as _threading
+try:
+    import thread as _thread
+except ImportError:
+    import dummy_thread as _thread
 
 from zope.component import getSiteManager, ComponentLookupError, getUtility
 from zope.interface import Interface, implements, classImplements
@@ -9,8 +18,6 @@ from zope.rdb.interfaces import IManageableZopeDatabaseAdapter
 import pool
 import dbapi
 
-import threading
-
 # use a module-level connection pool so the connections may survive when
 # the thread dies.  Under Paste, threads die periodically.
 #local = threading.local()
@@ -19,7 +26,7 @@ connectionPool = pool.manage(dbapi)
 
 #connectionPool = pool.manage(dbapi,poolclass=pool.SingletonThreadPool)
 
-lock = threading.Lock()
+lock = _threading.Lock()
 
 DEFAULT_ENCODING = 'utf-8'
 
@@ -46,6 +53,16 @@ class SednaCursor(ZopeCursor):
     def _convertTypes(self,results):
         return results
 
+    def execute(self, operation, parameters=None):
+        """Executes an operation, registering the underlying
+        connection with the transaction system.  """
+        #operation, parameters = self._prepareOperation(operation, parameters)
+        self.connection.registerForTxn()
+        if parameters is None:
+            return self.cursor.execute(operation)
+        return self.cursor.execute(operation)
+
+
 class SednaConnection(ZopeConnection):
     """a zope.rdb.ZopeConnection with conversions disabled"""
 
@@ -64,21 +81,17 @@ class SednaConnection(ZopeConnection):
 class SednaAdapter(object):
     """This is zope.rdb.ZopeDatabaseAdapter, but not Persistent
 
-    Since Sedna Adapter does not want any special conversions,
+    Since Sedna Adapter does not want any results conversion,
     A SednaConnection is returned instead of a
     ZopeConnection.
 
     """
     implements(IManageableZopeDatabaseAdapter)
 
-    # pool takes care of thread affinity, so getting connections is a
-    # matter of getting a connection from the pool.  Connections
-    # return to the pool when they expire.
-
     def __init__(self, dsn):
         self.setDSN(dsn)
         self._unique_id = '%s.%s.%s' % (
-                time.time(), random.random(), thread.get_ident()
+                time.time(), random.random(), _thread.get_ident()
                 )
 
     def _connection_factory(self):
@@ -132,5 +145,3 @@ class SednaAdapter(object):
         'See IDBITypeInfo'
         return identity
 
-    #def __del__(self):
-        #self.disconnect()
