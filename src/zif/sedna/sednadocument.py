@@ -59,15 +59,6 @@ class SednaResult(object):
 
 
 
-
-
-
-
-
-
-
-
-
 class SednaCollection(object):
     """
     a collection of documents in a Sedna database

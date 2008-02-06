@@ -298,10 +298,8 @@ class SednaProtocol(object):
         self.currItem = []
         self.result = None
 	self.receiveBuffer = ''
-        try:
+        if isinstance(query,unicode):
             query = query.encode('utf-8')
-        except UnicodeEncodeError,e:
-            raise ProgrammingError('Query must be utf-8 or unicode. %s' % e)
         if not self.inTransaction:
             self.begin()
         self.error = None
