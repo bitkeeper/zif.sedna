@@ -1,7 +1,7 @@
 """
 
 zif.sedna
-Copyright (c) 2007, Virginia Polytechnic Institute and State University
+Copyright (c) 2008, Virginia Polytechnic Institute and State University
 All rights reserved. Refer to LICENSE.txt for details of distribution and use.
 
 Distutils setup
@@ -37,7 +37,7 @@ setup(
     packages = find_packages('src'),
     package_dir = {'':'src'},
     namespace_packages = ['zif'],
-    install_requires = ['setuptools','elementtree'],
+    install_requires = ['setuptools'],
     include_package_data = True,
     zip_safe = False,
     )
