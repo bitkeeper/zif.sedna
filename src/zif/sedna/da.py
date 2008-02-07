@@ -1,4 +1,4 @@
-import time, random, thread
+import time, random
 
 try:
     import threading as _threading
@@ -77,6 +77,18 @@ class SednaConnection(ZopeConnection):
     def cursor(self):
         curs =  SednaCursor(self.conn.cursor(),self)
         return curs
+
+    def debugOn(self):
+        self.conn.debugOn()
+
+    def debugOff(self):
+        self.conn.debugOff()
+
+    def traceOn(self):
+        self.conn.traceOn()
+
+    def traceOff(self):
+        self.conn.traceOff()
 
 class SednaAdapter(object):
     """This is zope.rdb.ZopeDatabaseAdapter, but not Persistent

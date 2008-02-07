@@ -30,7 +30,14 @@ import Queue
 # __jmw__ use python cPickle instead of sqlalchemy's
 import cPickle as pickle
 # __jmw__ use python thread and threading instead of sqlalchemy's
-import thread, threading
+try:
+    import threading as _threading
+except ImportError:
+    import dummy_threading as _threading
+try:
+    import thread as _thread
+except ImportError:
+    import dummy_thread as _thread
 
 proxies = {}
 
@@ -168,15 +175,19 @@ class Pool(object):
             return _ConnectionFairy(self).checkout()
 
         try:
-            return self._threadconns[thread.get_ident()].checkout()
+            #__jmw__ _thread instead of thread
+            return self._threadconns[_thread.get_ident()].checkout()
         except KeyError:
             agent = _ConnectionFairy(self)
-            self._threadconns[thread.get_ident()] = agent
+            #__jmw__ _thread instead of thread
+            self._threadconns[_thread.get_ident()] = agent
             return agent.checkout()
 
     def return_conn(self, record):
-        if self._use_threadlocal and thread.get_ident() in self._threadconns:
-            del self._threadconns[thread.get_ident()]
+        #__jmw__ _thread instead of thread
+        if self._use_threadlocal and _thread.get_ident() in self._threadconns:
+            #__jmw__ _thread instead of thread
+            del self._threadconns[_thread.get_ident()]
         self.do_return_conn(record)
 
     def get(self):
@@ -513,7 +524,8 @@ class SingletonThreadPool(Pool):
 
     def dispose_local(self):
         try:
-            del self._conns[thread.get_ident()]
+            #__jmw__ _thread instead of thread
+            del self._conns[_thread.get_ident()]
         except KeyError:
             pass
 
@@ -527,17 +539,20 @@ class SingletonThreadPool(Pool):
                 return
 
     def status(self):
-        return "SingletonThreadPool id:%d thread:%d size: %d" % (id(self), thread.get_ident(), len(self._conns))
+        #__jmw__ _thread instead of thread
+        return "SingletonThreadPool id:%d thread:%d size: %d" % (id(self), _thread.get_ident(), len(self._conns))
 
     def do_return_conn(self, conn):
         pass
 
     def do_get(self):
         try:
-            return self._conns[thread.get_ident()]
+            #__jmw__ _thread instead of thread
+            return self._conns[_thread.get_ident()]
         except KeyError:
             c = self.create_connection()
-            self._conns[thread.get_ident()] = c
+            #__jmw__ _thread instead of thread
+            self._conns[_thread.get_ident()] = c
             if len(self._conns) > self.size:
                 self.cleanup()
             return c
@@ -579,7 +594,8 @@ class QueuePool(Pool):
         self._overflow = 0 - pool_size
         self._max_overflow = max_overflow
         self._timeout = timeout
-        self._overflow_lock = self._max_overflow > -1 and threading.Lock() or None
+        #__jmw__ _threading instead of threading
+        self._overflow_lock = self._max_overflow > -1 and _threading.Lock() or None
 
     def recreate(self):
         self.log("Pool recreating")

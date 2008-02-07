@@ -16,7 +16,7 @@ def read(*rnames):
 
 setup(
     name = 'zif.sedna',
-    version = '0.2dev',
+    version = '0.9beta',
     license = 'BSD',
     description = 'Sedna connector from the zif collective',
     long_description = (
@@ -30,7 +30,7 @@ setup(
         'Download\n'
         '**********************\n'
         ),
-    keywords = 'sedna xml database',
+    keywords = 'sedna xml database zope',
     author = 'Jim Washington',
     author_email = 'jwashin@vt.edu',
     url = 'http://zif.svn.sourceforge.net/viewvc/zif/zif.sedna',

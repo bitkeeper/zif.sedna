@@ -1,4 +1,4 @@
-README.da
+README_da.txt
 
 This is simple instructions for using the da in a zope3 installation.
 
@@ -27,8 +27,8 @@ Obtain a cursor
 
     c = sedna.cursor()
 
-and do some queries.  Here, we use zif.elements to put Chapter 1 of Genesis into
-a page.
+and do some queries.  Here, we use elementtree syntax to put Chapter 1 of
+Genesis into a page.  self.body is the 'body' element of the page.
 
     res = c.execute('doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
     theList = c.fetchall()
@@ -37,7 +37,7 @@ a page.
         p = SubElement(ol,'li')
         p.text = k.strip()
 
-fetchall() is not necessary; you can iterate the result directly.
+fetchall() is not necessary; you may iterate the result directly.
 
     res = c.execute('doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
     ol = SubElement(self.body,'ol')
