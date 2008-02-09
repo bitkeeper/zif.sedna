@@ -321,7 +321,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
-	self.receiveBuffer = ''
+        self.receiveBuffer = ''
         if isinstance(query,unicode):
             query = query.encode('utf-8')
         else:
@@ -347,7 +347,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
-	self.receiveBuffer = ''
+        self.receiveBuffer = ''
         return self.cursorFactory(self)
 
     # transactions
@@ -356,7 +356,7 @@ class SednaProtocol(object):
         """
         start transaction
         """
-	self.lock.acquire()
+        self.lock.acquire()
         if not self.inTransaction:
             #lock = threadlock
             #lock.acquire()
@@ -723,7 +723,7 @@ class SednaProtocol(object):
         """
         if bool:
             # block until lock is available
-	    # lock acquisition is in self.begin()
+            # lock acquisition is in self.begin()
             #self.lock.acquire()
             self._inTransaction = bool
         else:
@@ -852,8 +852,6 @@ class SednaProtocol(object):
     def _queryFailed(self,msg):
         error = ErrorInfo(msg)
         raise ProgrammingError(error.info)
-#        self.result = Result(self)
-#        return self.result
 
     def _updateSucceeded(self,msg):
         self.result = True
