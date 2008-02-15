@@ -33,7 +33,7 @@ Obtain a cursor
 and do some queries.  Here, we use elementtree syntax to put Chapter 1 of
 Genesis into a page.  self.body is the 'body' element of the page.
 
-    res = c.execute('doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
+    res = c.execute(u'doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
     theList = c.fetchall()
     ol = SubElement(self.body,'ol')
     for k in theList:
@@ -42,7 +42,7 @@ Genesis into a page.  self.body is the 'body' element of the page.
 
 fetchall() is not necessary; you may iterate the result directly.
 
-    res = c.execute('doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
+    res = c.execute(u'doc("ot")/tstmt/bookcoll[1]/book[1]/chapter[1]/v/text()')
     ol = SubElement(self.body,'ol')
     for k in res:
         p = SubElement(ol,'li')
