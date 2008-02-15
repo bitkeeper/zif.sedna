@@ -7,6 +7,9 @@ You need to require zope.rdb in your app's configure.zcml.
 <include package="zope.rdb" file="meta.zcml" />
 <include package="zope.rdb" />
 
+Add a namespace to your <configure directive:
+    xmlns:rdb="http://namespaces.zope.org/rdb"
+
 Then, you can do an rdb connection to sedna by dsn. For example:
 
 <rdb:provideConnection

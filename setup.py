@@ -16,21 +16,16 @@ def read(*rnames):
 
 setup(
     name = 'zif.sedna',
-    version = '0.9beta',
+    version = '0.9beta2',
     license = 'BSD',
-    description = 'Sedna connector from the zif collective',
+    description = 'Sedna XML Database adapter',
     long_description = (
         read('README.txt')
-        + '\n' +
-        'Detailed Documentation\n'
-        '**********************\n'
-        + '\n' +
-        read('src', 'zif', 'sedna', 'README.txt')
         + '\n' +
         'Download\n'
         '**********************\n'
         ),
-    keywords = 'sedna xml database zope',
+    keywords = 'sedna xml database zope persistence xquery',
     author = 'Jim Washington',
     author_email = 'jwashin@vt.edu',
     url = 'http://zif.svn.sourceforge.net/viewvc/zif/zif.sedna',

@@ -60,7 +60,7 @@ except ImportError:
     import dummy_threading as _threading
 
 import logging
-logger = logging.getLogger()
+#logger = logging.getLogger()
 
 #we want an elementtree impl, but only for non-essential stuff. non-fatal
 try:
@@ -75,6 +75,7 @@ except ImportError:
             try:
                 import elementtree.ElementTree as ET
             except ImportError:
+                logger = logging.getLogger()
                 logger.error(
 'zif.sedna protocol wants an elementtree implementation for some functions.')
 
@@ -121,12 +122,44 @@ def normalizeMessage(message):
         n.append(k.rstrip().replace('\t','    '))
     return u'\n'.join(n)
 
+def escapeAndQuote(aDict):
+    """
+    Put strings in quotes
+    also double single- and double-quote characters within a string
+    """
+    newDict = {}
+    for item in aDict:
+        try:
+            value = aDict[item]
+        except TypeError:
+            raise ProgrammingError(
+    'expected a parameters dict. Use pyformat %(var)s for constants.')
+        if isinstance(value,basestring):
+            for quote in ('"',"'"):
+                if quote in value:
+                    split = value.split(quote)
+                    dq = 2*quote
+                    value = dq.join(split)
+            value = "'"+ value + "'"
+        # these elifs do not seem to be necessary in py 2.4 and 2.5
+        #elif isinstance(value,long):
+            #value = str(value)
+            #while value.endswith('L'):
+                #value = value[:-1]
+        #elif isinstance(value,float):
+            #value = str(value)
+        newDict[item] = value
+    return newDict
 
 class BasicCursor(object):
     """a PEP-249-like cursor to a zif.sedna protocol object
 
     You may override this by setting the connection's cursorFactory to
     some other implementation.
+
+    If you use pyformat parameters in a statement, strings are quoted and
+    quotation marks are doubled within the string.  Numbers are left unquoted.
+    Only for use with atomic values.
 
     """
     arraysize = 1
@@ -137,14 +170,14 @@ class BasicCursor(object):
 
     def execute(self,statement, parameters=None):
         if parameters:
-            statement = statement % parameters
+            statement = statement % escapeAndQuote(parameters)
         self.result =  self.connection.execute(statement)
         return self.result
 
     def executemany(self,statements,parameters=None):
         for statement in statements:
             if parameters:
-                statement = statement % parameters
+                statement = statement % escapeAndQuote(parameters)
                 self.execute(statement)
 
     def __iter__(self):
@@ -154,8 +187,6 @@ class BasicCursor(object):
         return [item for item in self.result]
 
     def fetchone(self):
-        while self.result is None:
-            time.sleep(0)
         try:
             return self.result.next()
         except StopIteration:
@@ -356,14 +387,10 @@ class SednaProtocol(object):
         """
         start transaction
         """
+        # always acquire instance lock on begin.
+        # the lock is released on error or when transaction ends.
         self.lock.acquire()
-        if not self.inTransaction:
-            #lock = threadlock
-            #lock.acquire()
-            self._send_string(token=SEDNA_BEGIN_TRANSACTION)
-            #while not self.inTransaction:
-                #time.sleep(0)
-            #lock.release()
+        self._send_string(token=SEDNA_BEGIN_TRANSACTION)
 
     beginTransaction = begin
 
@@ -466,7 +493,7 @@ class SednaProtocol(object):
 
     @property
     def schema(self):
-        return self._listMetadata('$schema')
+        return self.execute(u'doc("$schema")').value
 
     def _listMetadata(self,loc):
         s = self.execute(u'doc("%s")' % loc)
@@ -486,6 +513,17 @@ class SednaProtocol(object):
 
     def getCollectionStats(self,collection_name):
         return self.execute(u'doc("$collection_%s")' % collection_name).value
+
+    def collectionDocuments(self,collection_name):
+        t = u"document('$documents')/documents/collection[@name='%s']/document"
+        st = t % collection_name
+        res = self.execute(st)
+        theList = []
+        for doc in res:
+            item = ET.XML(doc)
+            name = item.get('name')
+            theList.append(name)
+        return theList
 
 # debug helpers
 
@@ -669,7 +707,9 @@ class SednaProtocol(object):
             raise InterfaceError(u"Message is too long.")
         self._sendSocketData(pack(self.headerFormat,int(token),len(data)
             ) + data)
+
         if self.doTrace:
+            logger = logging.getLogger()
             if token in (SEDNA_EXECUTE, SEDNA_EXECUTE_LONG):
                 trace = data[6:]
             elif token == SEDNA_SET_SESSION_OPTIONS:
@@ -681,10 +721,7 @@ class SednaProtocol(object):
                     trace.strip()))
             else:
                 logger.info("(C) %s" % codes[token])
-        # Yield current timeslice to other threads. We're always waiting for a
-        # sedna server response at this point.  Overall a teeny bit better
-        # throughput.
-        time.sleep(0)
+
         if respond:
             return self._get_response()
 
@@ -703,6 +740,7 @@ class SednaProtocol(object):
         msg = self._getSocketData(length)
         # handlers are call-backs after the data are received
         if self.doTrace:
+            logger = logging.getLogger()
             if token in (SEDNA_ERROR_RESPONSE, SEDNA_DEBUG_INFO):
                 z = msg[9:]
             else:
@@ -765,9 +803,6 @@ class SednaProtocol(object):
                 data = self.socket.recv(length-bufferLen)
             except socket.error,e:
                 raise InterfaceError('Error reading from socket: %s' % e)
-            except OverflowError,e:
-                raise DatabaseError(u"%s (%s-%s=%s)" % (e,length,bufferLen,
-                length-bufferLen))
             self.receiveBuffer += data
             bufferLen += len(data)
         data, self.receiveBuffer = self.receiveBuffer[:length], \

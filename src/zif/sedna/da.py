@@ -9,8 +9,7 @@ try:
 except ImportError:
     import dummy_thread as _thread
 
-from zope.component import getSiteManager, ComponentLookupError, getUtility
-from zope.interface import Interface, implements, classImplements
+from zope.interface import implements
 
 from zope.rdb import parseDSN, ZopeConnection, ZopeCursor
 from zope.rdb.interfaces import IManageableZopeDatabaseAdapter
@@ -60,7 +59,7 @@ class SednaCursor(ZopeCursor):
         self.connection.registerForTxn()
         if parameters is None:
             return self.cursor.execute(operation)
-        return self.cursor.execute(operation)
+        return self.cursor.execute(operation,parameters)
 
 
 class SednaConnection(ZopeConnection):
