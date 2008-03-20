@@ -1,4 +1,5 @@
-import protocol
+from zif.sedna import protocol
+ 
 import sys
 
 username = 'SYSTEM'
