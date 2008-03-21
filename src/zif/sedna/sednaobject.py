@@ -302,6 +302,18 @@ class SednaElement(SednaXPath):
         else:
             raise KeyError("KeyError %s" % key)
 
+    def replace(self,obj):
+        """ replace item at self.path with the object"""
+        item = checkobj(obj)
+        q = u'update replace $i in %s ' % (self.path,)
+        q += ' with %s' % (item,)
+        try:
+            self.cursor.execute(q)
+        except DatabaseError:
+            raise ValueError('Update failed.  Is the item well-formed?')
+        self._attrib = None
+        self._count = None
+
     def __getslice__(self,start,stop):
         #start,stop,step = key.indices(self.count())
         #if step <> 1:

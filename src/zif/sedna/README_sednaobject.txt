@@ -1,13 +1,11 @@
-===============
+=====================
 zif.sedna.sednaobject
-===============
+=====================
 
 sednaobject has a couple of classes to make interaction with the Sedna server a
 bit more pythonic and friendly.
 
 We'll start with the usual test document in the test database:
-
-.. sourcecode:: pycon
 
     >>> login = 'SYSTEM'
     >>> passwd = 'MANAGER'
@@ -24,7 +22,7 @@ We'll start with the usual test document in the test database:
     True
 
 zif.sedna.sednaobject.SednaXPath
---------------------
+--------------------------------
 
 SednaXPath is a class intended to abstract XQuery results to provide pythonic
 sequence methods.  XPath results are readonly, so this class mainly provides
@@ -166,12 +164,13 @@ return iterables will work fine:
     [u'nam', u'sam']
 
 zif.sedna.sednaobject.SednaElement
---------------------
+----------------------------------
 
 SednaElement is a class intended to abstract an Element on the server to
 provide elementtree-like methods, particularly element information and
 modification for persistence. This is a read-write interface and very handy for
-container elements.
+container elements.  We do commits periodically here.  We want to show error
+messages, and Sedna seems to be doing rolling back state on certain errors.
 
 Initialize a SednaElement with a cursor and an XPath expression:
 
@@ -218,8 +217,8 @@ Obtain the element in one shot:
      </samerica>
     </regions>
 
-Item access works as with SednaXQuery, except you get the items within the
-Element instead of within the list returned by the query:
+Item access works as with SednaXPath, except you get the items within the
+Element instead of the items of the list returned by the query:
 
     >>> z[0]
     u'<africa><id_region>afr</id_region></africa>'
@@ -242,25 +241,55 @@ entire item tree, so do this sparingly:
     {'attr': 'something'}
     >>> z.get('attr')
     u'something'
+    >>> z.cursor.connection.commit()
+    True
+
+Sometimes, you have a somewhat atomic element, and just want to replace it.
+
+    >>> idx = z.xindex(z[0])
+    >>> p = z.path + '/' + '*[%s]' % idx
+    >>> t = SednaElement(z.cursor,p)
+    >>> print t
+    <africa>
+     <id_region>afr</id_region>
+    </africa>
+    >>> t.replace('bob')
+    Traceback (most recent call last):
+    ...
+    ValueError: Update failed.  Is the item well-formed?
+    >>> item = fromstring(str(t))
+    >>> from lxml.etree import SubElement
+    >>> dummy = SubElement(item,'v',{'attr' : 'val'})
+    >>> dummy.text = 'txt'
+    >>> t.replace(item)
+    >>> print t
+    <africa>
+     <id_region>afr</id_region>
+     <v attr="val">txt</v>
+    </africa>
+    >>> print z[0]
+    <africa><id_region>afr</id_region><v attr="val">txt</v></africa>
 
 The list of subelements is mutable. Assign a new item at an index.  Subelements
 must be well-formed.
 
-   >>> z[0] = 'fred'
-   Traceback (most recent call last):
-   ...
-   ValueError: Update failed.  Is the item well-formed?
-   >>> t = fromstring(z[0])
-   >>> t.xpath('id_region')[0].text = 'africa'
-   >>> z[0] = t
-   >>> print z[0]
-   <africa><id_region>africa</id_region></africa>
+   >>> t = fromstring(z[1])
+   >>> t.xpath('id_region')[0].text = 'asia'
+   >>> z[1] = t
+   >>> print z[1]
+   <asia><id_region>asia</id_region></asia>
    >>> for idx, item in list(enumerate(z)):
    ...     t = fromstring(item)
    ...     t.xpath('id_region')[0].tag = 'region_id'
    ...     z[idx] = t
    >>> print z[2]
    <australia><region_id>aus</region_id></australia>
+   >>> z.cursor.connection.commit()
+   True
+   >>> z[0] = 'fred'
+   Traceback (most recent call last):
+   ...
+   ValueError: Update failed.  Is the item well-formed?
 
 Append, insert, and remove work.  Note that "remove" removes only the first
 child whose normalized text representation matches the normalized text
@@ -295,14 +324,14 @@ representation of the item provided.
    >>> z[0]
    u'<europe><region_id>eur</region_id></europe>'
    >>> z[1]
-   u'<africa><region_id>africa</region_id></africa>'
+   u'<africa><region_id>afr</region_id><v attr="val">txt</v></africa>'
 
 These functions work for lxml.etree Elements.
 
    >>> s = fromstring(s)
    >>> z.remove(s)
    >>> z[0]
-   u'<africa><region_id>africa</region_id></africa>'
+   u'<africa><region_id>afr</region_id><v attr="val">txt</v></africa>'
    >>> z.insert(-1,s)
    >>> len(z)
    6
@@ -312,7 +341,7 @@ These functions work for lxml.etree Elements.
 del works, too
    >>> del z[0]
    >>> z[0]
-   u'<asia><region_id>asi</region_id></asia>'
+   u'<asia><region_id>asia</region_id></asia>'
    >>> z[-1]
    u'<samerica><region_id>sam</region_id></samerica>'
    >>> del z[-1]
@@ -321,7 +350,7 @@ del works, too
    >>> len(z)
    4
 
-slice modification is unsupported.
+Slice modification is unsupported.
 
    >>> del z[:]
    Traceback (most recent call last):
@@ -337,12 +366,15 @@ Extend works, though.
     7
 
 It is sometimes handy to obtain the parent of the element.  When getparent()
-returns None, you are at root.
+returns None, you are at root. .parent is a synonym
 
     >>> p = z.path + '/' + '*[1]'
     >>> t = SednaElement(z.cursor,p)
     >>> t.tag
     'asia'
+    >>> s = t.parent
+    >>> s.tag
+    'regions'
     >>> s = t.getparent()
     >>> s.tag
     'regions'
