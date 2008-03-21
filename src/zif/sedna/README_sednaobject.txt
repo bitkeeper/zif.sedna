@@ -1,9 +1,9 @@
 ===============
-zif.sedna.utils
+zif.sedna.sednaobject
 ===============
 
-Utils has a couple of classes to make interaction with the Sedna server a bit
-more pythonic and friendly.
+sednaobject has a couple of classes to make interaction with the Sedna server a
+bit more pythonic and friendly.
 
 We'll start with the usual test document in the test database:
 
@@ -23,7 +23,7 @@ We'll start with the usual test document in the test database:
     >>> conn.commit()
     True
 
-zif.utils.SednaXPath
+zif.sedna.sednaobject.SednaXPath
 --------------------
 
 SednaXPath is a class intended to abstract XQuery results to provide pythonic
@@ -32,7 +32,7 @@ length and accessors.
 
 Initialize a SednaXPath with a cursor and an XQuery expression:
 
-    >>> from utils import SednaXPath
+    >>> from sednaobject import SednaXPath
     >>> curs = conn.cursor()
     >>> expr = u"doc('testx_region')/regions/*"
     >>> z = SednaXPath(curs,expr)
@@ -165,7 +165,7 @@ return iterables will work fine:
     >>> z[-2:]
     [u'nam', u'sam']
 
-zif.utils.SednaElement
+zif.sedna.sednaobject.SednaElement
 --------------------
 
 SednaElement is a class intended to abstract an Element on the server to
@@ -175,7 +175,7 @@ container elements.
 
 Initialize a SednaElement with a cursor and an XPath expression:
 
-    >>> from utils import SednaElement
+    >>> from sednaobject import SednaElement
     >>> curs = conn.cursor()
     >>> path = u"doc('testx_region')/regions"
     >>> z = SednaElement(curs,path)
