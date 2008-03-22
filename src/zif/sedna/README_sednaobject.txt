@@ -2,8 +2,23 @@
 zif.sedna.sednaobject
 =====================
 
-sednaobject has a couple of classes to make interaction with the Sedna server a
-bit more pythonic and friendly.
+sednaobject has a couple of classes, SednaXPath and SednaElement, that abstract
+fetches and updates for a Sedna server.
+
+SednaXpath is for readonly query results.  It provides list-like behavior.
+Access query result items by index, slice, or iteration.
+
+SednaElement provides a read-write elementtree-like interface to a single
+element and its children.  For container-like elements, it provides mutable
+access to children by index.  For more object-like elements, the "replace"
+method is likely to be useful.
+
+sednaobject requires lxml.  Items based on lxml Element are supported, so
+functionality provided by lxml.etree and lxml.objectify may be used for item
+creation and editing.  Plain-text xml may also be used.
+
+sednaobject is blithely ignorant of namespaces, which is presumably OK for most
+applications.  Namespace-awareness will be added as necessary.
 
 We'll start with the usual test document in the test database:
 
@@ -28,7 +43,8 @@ SednaXPath is a class intended to abstract XQuery results to provide pythonic
 sequence methods.  XPath results are readonly, so this class mainly provides
 length and accessors.
 
-Initialize a SednaXPath with a cursor and an XQuery expression:
+Initialize a SednaXPath with a cursor an XQuery expression, and an optional
+parser:
 
     >>> from sednaobject import SednaXPath
     >>> curs = conn.cursor()
@@ -163,6 +179,32 @@ return iterables will work fine:
     >>> z[-2:]
     [u'nam', u'sam']
 
+If you init the SednaXQuery object with a parser, results will be returned
+parsed with that parser if possible.  Good choices are lxml.etree.fromstring
+and lxml.objectify.fromstring. If parsing fails, the text representation will
+be returned.
+
+    >>> z = SednaXPath(curs,q,parser=fromstring)
+    >>> type(z[0])
+    <type 'unicode'>
+    >>> z[-2:]
+    [u'nam', u'sam']
+    >>> z[0]
+    u'afr'
+    >>> expr = u"doc('testx_region')/regions"
+    >>> z = SednaXPath(curs,expr,parser=fromstring)
+    >>> z[0].tag
+    'regions'
+    >>> expr = u"doc('testx_region')/regions/*"
+    >>> z = SednaXPath(curs,expr, parser=fromstring)
+    >>> type(z[0])
+    <type 'lxml.etree._Element'>
+    >>> [item.tag for item in z]
+    ['africa', 'asia', 'australia', 'europe', 'namerica', 'samerica']
+    >>> [item.tag for item in z[2:4]]
+    ['australia', 'europe']
+
+
 zif.sedna.sednaobject.SednaElement
 ----------------------------------
 
@@ -170,7 +212,7 @@ SednaElement is a class intended to abstract an Element on the server to
 provide elementtree-like methods, particularly element information and
 modification for persistence. This is a read-write interface and very handy for
 container elements.  We do commits periodically here.  We want to show error
-messages, and Sedna seems to be doing rolling back state on certain errors.
+messages, and Sedna seems to be rolling back state on certain errors.
 
 Initialize a SednaElement with a cursor and an XPath expression:
 
@@ -224,13 +266,15 @@ Element instead of the items of the list returned by the query:
     u'<africa><id_region>afr</id_region></africa>'
     >>> z[-1] in z
     True
+    >>> z[0] in z
+    True
     >>> z[3:4]
     [u'<europe><id_region>eur</id_region></europe>']
     >>> z.xindex(z[-2])
     5
 
 Some elementtree functions work.  Setting an attribute reads and rewrites the
-entire item tree, so do this sparingly:
+entire item, so do this sparingly:
 
     >>> z.tag
     'regions'
@@ -244,7 +288,8 @@ entire item tree, so do this sparingly:
     >>> z.cursor.connection.commit()
     True
 
-Sometimes, you have a somewhat atomic element, and just want to replace it.
+Sometimes, you have a somewhat atomic element, and just want to replace the
+entire item with an update.
 
     >>> idx = z.xindex(z[0])
     >>> p = z.path + '/' + '*[%s]' % idx
@@ -256,11 +301,11 @@ Sometimes, you have a somewhat atomic element, and just want to replace it.
     >>> t.replace('bob')
     Traceback (most recent call last):
     ...
-    ValueError: Update failed.  Is the item well-formed?
+    ValueError: Item is not well-formed.
     >>> item = fromstring(str(t))
     >>> from lxml.etree import SubElement
-    >>> dummy = SubElement(item,'v',{'attr' : 'val'})
-    >>> dummy.text = 'txt'
+    >>> new_element = SubElement(item,'v',{'attr' : 'val'})
+    >>> new_element.text = 'txt'
     >>> t.replace(item)
     >>> print t
     <africa>
@@ -289,7 +334,7 @@ must be well-formed.
    >>> z[0] = 'fred'
    Traceback (most recent call last):
    ...
-   ValueError: Update failed.  Is the item well-formed?
+   ValueError: Item is not well-formed.
 
 Append, insert, and remove work.  Note that "remove" removes only the first
 child whose normalized text representation matches the normalized text
@@ -303,10 +348,16 @@ representation of the item provided.
    7
    >>> z[-1]
    u'<antarctica><region_id>ant</region_id></antarctica>'
+   >>> z.cursor.connection.commit()
+   True
+   >>> z.append('hello')
+   Traceback (most recent call last):
+   ...
+   ValueError: Item is not well-formed.
    >>> z.remove('hello')
    Traceback (most recent call last):
    ...
-   ValueError: item not in list
+   ValueError: Item is not well-formed.
    >>> z.remove(t)
    >>> len(z)
    6
@@ -325,6 +376,11 @@ representation of the item provided.
    u'<europe><region_id>eur</region_id></europe>'
    >>> z[1]
    u'<africa><region_id>afr</region_id><v attr="val">txt</v></africa>'
+   >>> j = z[:]
+   >>> len(j)
+   6
+   >>> isinstance(j,list)
+   True
 
 These functions work for lxml.etree Elements.
 
@@ -338,12 +394,18 @@ These functions work for lxml.etree Elements.
    >>> z[-2]
    u'<europe><region_id>eur</region_id></europe>'
 
-del works, too
+del works.
+
+   >>> t = z[-1]
+   >>> t
+   u'<samerica><region_id>sam</region_id></samerica>'
+   >>> z.index(t)
+   5
    >>> del z[0]
    >>> z[0]
    u'<asia><region_id>asia</region_id></asia>'
-   >>> z[-1]
-   u'<samerica><region_id>sam</region_id></samerica>'
+   >>> z.index(t)
+   4
    >>> del z[-1]
    >>> z[-1]
    u'<europe><region_id>eur</region_id></europe>'
@@ -357,7 +419,8 @@ Slice modification is unsupported.
    ...
    TypeError: unsupported operand type(s) for +: 'slice' and 'int'
 
-Extend works, though.
+Extend works.
+
     >>> len(z)
     4
     >>> t = [z[0],z[1],z[2]]
@@ -365,8 +428,19 @@ Extend works, though.
     >>> len(z)
     7
 
-It is sometimes handy to obtain the parent of the element.  When getparent()
-returns None, you are at root. .parent is a synonym
+Note that "index" refers to the first appearance of an item by value, so the
+following is correct.
+
+    >>> z.index(z[-1])
+    2
+
+You may obtain the path SednaElement was initialized with.
+    >>> z.path
+    u"doc('testx_region')/regions"
+
+It is sometimes handy to obtain the parent of an element.  When getparent()
+returns None, you are at root. .parent is a synonym.  The parent returned
+is a SednaElement.
 
     >>> p = z.path + '/' + '*[1]'
     >>> t = SednaElement(z.cursor,p)
@@ -378,9 +452,18 @@ returns None, you are at root. .parent is a synonym
     >>> s = t.getparent()
     >>> s.tag
     'regions'
+    >>> isinstance(s,SednaElement)
+    True
     >>> f = s.getparent()
     >>> f is None
     True
+
+If you init a SednaElement with a parser, returned items will be parsed with
+that parser.
+    >>> path = u"doc('testx_region')/regions"
+    >>> z = SednaElement(curs,path, parser=fromstring)
+    >>> [item.tag for item in z]
+    ['asia', 'australia', 'namerica', 'europe', 'asia', 'australia', 'namerica']
 
 Cleanup.  We delete the previously-created documents and close the connection.
 
