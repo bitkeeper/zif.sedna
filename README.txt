@@ -43,13 +43,14 @@ zif.sedna provides
     a database adapter for zope(3) with connection pooling and (provisional)
     thread safety.
 
-INSTALLATION NOTE: zif.sedna needs an elementtree implementation for some
-functions, but not any one in particular, so setup will not install one for you.
-lxml is recommended. lxml.objectify may be a useful addition to your toolkit for
-handling XQuery results.
+    sednaobject, which provides pythonic interfaces to the Sedna server for
+    CRUD operations. It abstracts read-only query results into python
+    sequence-like items and also provides a read-write elementtree-like
+    interface for managing individual elements and their descendents.
 
 See 'src/zif/sedna/README.txt' for more information and doctest examples.
 See 'src/zif/sedna/README_da.txt' to use the zope3 database adapter in zope.
+See 'src/zif/sedna/README_sednaobject.txt' for sednaobject usage and doctests.
 See 'src/zif/sedna/README_pylons.txt' to use the zope3 database adapter in
      pylons.
 
@@ -67,3 +68,10 @@ Initial release
 Support pyformat %(var)s for atomic values in BasicCursor.
 Improved thread friendliness.
 Preliminary instructions for use with pylons.
+
+================
+0.10 alpha1 (2008/03/23)
+================
+sednaobject provided. Abstractions for pythonic CRUD operations.
+lxml now required
+

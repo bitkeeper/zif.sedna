@@ -41,9 +41,9 @@ zif.sedna.sednaobject.SednaXPath
 
 SednaXPath is a class intended to abstract XQuery results to provide pythonic
 sequence methods.  XPath results are readonly, so this class mainly provides
-length and accessors.
+length, indexed access, and slicing.
 
-Initialize a SednaXPath with a cursor an XQuery expression, and an optional
+Initialize a SednaXPath with a cursor, an XQuery expression, and an optional
 parser:
 
     >>> from sednaobject import SednaXPath
@@ -95,6 +95,12 @@ Do the "in" thing:
 
     >>> z[0] in z
     True
+    >>> from lxml.etree import tostring, fromstring
+    >>> d = fromstring(z[2])
+    >>> d in z
+    True
+    >>> tostring(d) in z
+    True
     >>> "<arbitrary>tag</arbitrary>" in z
     False
 
@@ -130,7 +136,9 @@ Slice:
     >>> z[-2:] ==  z[4:]
     True
 
-Do list comprehension:
+Do list comprehension.  Note that this retrieves the entire set from the
+server while iterating.  Provide an XQuery with a "where" clause if you want
+the server to do the "if" for you.
 
     >>> y = [item for item in z if 'samerica' in item]
     >>> print y[0].lstrip()
@@ -196,7 +204,7 @@ be returned.
     >>> z[0].tag
     'regions'
     >>> expr = u"doc('testx_region')/regions/*"
-    >>> z = SednaXPath(curs,expr, parser=fromstring)
+    >>> z = SednaXPath(curs,expr,parser=fromstring)
     >>> type(z[0])
     <type 'lxml.etree._Element'>
     >>> [item.tag for item in z]
@@ -459,11 +467,83 @@ is a SednaElement.
     True
 
 If you init a SednaElement with a parser, returned items will be parsed with
-that parser.
+that parser. "fromstring" here is lxml.etree.fromstring
     >>> path = u"doc('testx_region')/regions"
-    >>> z = SednaElement(curs,path, parser=fromstring)
+    >>> z = SednaElement(curs,path,parser=fromstring)
     >>> [item.tag for item in z]
     ['asia', 'australia', 'namerica', 'europe', 'asia', 'australia', 'namerica']
+    >>> z[0].tag
+    'asia'
+
+Here, we use lxml.objectify.fromstring.  Just trying a bunch of things...
+
+    >>> z = SednaElement(curs,path,parser=objectify.fromstring)
+    >>> [item.tag for item in z]
+    ['asia', 'australia', 'namerica', 'europe', 'asia', 'australia', 'namerica']
+    >>> z[1].tag
+    'australia'
+    >>> z[1].region_id
+    'aus'
+    >>> t = z[1]
+    >>> t.region_id = 'aut'
+    >>> t.city = "Canberra"
+    >>> t['animal'] = 'kangaroo'
+    >>> t.fun_words = ["g'day","barbie", "sheila"]
+    >>> t['arb_list'] = [u'\u20ac (euro symbol)',3,False,4.0,-25, None]
+    >>> t.arb_list = t.arb_list[:] + [True, 'true']
+    >>> if not len(t.xpath('contact')):
+    ...     dummy = SubElement(t,'contact')
+    >>> if not len(t.xpath("contact/name")):
+    ...     dummy = SubElement(t.contact,'name')
+    >>> t.contact.name.last = 'Hogan'
+    >>> t.contact.name.first = 'Paul'
+    >>> z[1] = t
+    >>> m = z[1]
+    >>> m.region_id
+    'aut'
+    >>> m.city
+    'Canberra'
+    >>> m.fun_words
+    "g'day"
+    >>> list(m['fun_words'])
+    ["g'day", 'barbie', 'sheila']
+    >>> m.fun_words[:]
+    ["g'day", 'barbie', 'sheila']
+    >>> list(m.fun_words)
+    ["g'day", 'barbie', 'sheila']
+    >>> m['city']
+    'Canberra'
+    >>> m.animal
+    'kangaroo'
+    >>> m.arb_list[:]
+    [u'\u20ac (euro symbol)', 3, False, 4.0, -25, None, True, 'true']
+    >>> '%s, %s' % (m.contact.name.last, m.contact.name.first)
+    'Hogan, Paul'
+    >>> t = objectify.Element('australia')
+    >>> t.region_id = 'aus'
+    >>> t.city = "Canberra"
+    >>> t.fun_words = ["g'day","barbie", "sheila"]
+    >>> if not len(t.xpath('contact')):
+    ...     dummy = SubElement(t,'contact')
+    >>> if not len(t.xpath("contact/name")):
+    ...     dummy = SubElement(t.contact,'name')
+    >>> t.contact.name.last = 'Hogan'
+    >>> t.contact.name.first = 'Paul'
+    >>> z[1] = t
+    >>> print tostring(z[1], pretty_print=True).strip()
+    <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
+      <region_id py:pytype="str">aus</region_id>
+      <city py:pytype="str">Canberra</city>
+      <fun_words py:pytype="str">g'day</fun_words>
+      <fun_words py:pytype="str">barbie</fun_words>
+      <fun_words py:pytype="str">sheila</fun_words>
+      <contact>
+        <name>
+          <last py:pytype="str">Hogan</last>
+          <first py:pytype="str">Paul</first>
+        </name>
+      </contact>
+    </australia>
 
 Cleanup.  We delete the previously-created documents and close the connection.
 

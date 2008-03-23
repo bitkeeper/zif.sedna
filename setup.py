@@ -16,7 +16,7 @@ def read(*rnames):
 
 setup(
     name = 'zif.sedna',
-    version = '0.9beta2',
+    version = '0.10alpha1',
     license = 'BSD',
     description = 'Sedna XML Database adapter',
     long_description = (
@@ -32,7 +32,7 @@ setup(
     packages = find_packages('src'),
     package_dir = {'':'src'},
     namespace_packages = ['zif'],
-    install_requires = ['setuptools'],
+    install_requires = ['setuptools', 'lxml'],
     include_package_data = True,
     zip_safe = False,
     )
