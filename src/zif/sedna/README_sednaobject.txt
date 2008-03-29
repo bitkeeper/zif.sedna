@@ -2,8 +2,8 @@
 zif.sedna.sednaobject
 =====================
 
-sednaobject has a couple of classes, SednaXPath and SednaElement, that abstract
-fetches and updates for a Sedna server.
+sednaobject has a few classes, SednaXPath, SednaElement, and
+SednaObjectifiedElement that abstract fetches and updates for a Sedna server.
 
 SednaXpath is for readonly query results.  It provides list-like behavior.
 Access query result items by index, slice, or iteration.
@@ -12,6 +12,9 @@ SednaElement provides a read-write elementtree-like interface to a single
 element and its children.  For container-like elements, it provides mutable
 access to children by index.  For more object-like elements, the "replace"
 method is likely to be useful.
+
+SednaObjectifiedElement is a thin wrapper around lxml.objectify for a single
+(object-like) element.
 
 sednaobject requires lxml.  Items based on lxml Element are supported, so
 functionality provided by lxml.etree and lxml.objectify may be used for item
@@ -538,7 +541,7 @@ Here, we use lxml.objectify.fromstring.  Just trying a bunch of things...
     >>> t.contact.name.last = 'Hogan'
     >>> t.contact.name.first = 'Paul'
     >>> z[1] = t
-    >>> print tostring(z[1], pretty_print=True).strip()
+    >>> print tostring(z[1], pretty_print=True, encoding=unicode).strip()
     <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
       <region_id py:pytype="str">aus</region_id>
       <city py:pytype="str">Canberra</city>
@@ -558,36 +561,47 @@ zif.sedna.sednaobject.SednaObjectifiedElement
 
 SednaObjectifiedElement is a thin wrapper around lxml.objectify.
 
-Initialize a SednaObjectifiedElement with a cursor and an XPath expression:
+Initialize a SednaObjectifiedElement with a cursor and an XPath expression.
+Path must refer to a single element that already exists in the database.
 
 We'll pull in the item from the last example in SednaElement:
     >>> from sednaobject import SednaObjectifiedElement
     >>> q = u"doc('testx_region')/regions/"
-    >>> q += "*[city='Canberra']"
+    >>> q += '*[city="Canberra" and region_id="aus"]'
     >>> t = SednaObjectifiedElement(curs,q)
-    >>> t['bob'] = 3
-    >>> t.mary = 'Fine'
-    >>> t.mary
+
+Since this is just a wrapper, we do modifications as in objectify.
+
+    >>> t['years'] = 3
+    >>> t.condition = 'Fine'
+    >>> t['condition']
     'Fine'
-    >>> t['bob']
+    >>> t.years
     3
+    >>> t.fun_words = ['one', 'two']
+    >>> t.contact.name['first'] = 'Fred'
+
+Important: save modifications.  store() is a synonym.
+
     >>> t.save()
+
+Now, we verify that the save persisted the modifications.
+
     >>> t = SednaElement(curs,q)
     >>> print t
     <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
      <region_id py:pytype="str">aus</region_id>
      <city py:pytype="str">Canberra</city>
-     <fun_words py:pytype="str">g'day</fun_words>
-     <fun_words py:pytype="str">barbie</fun_words>
-     <fun_words py:pytype="str">sheila</fun_words>
+     <fun_words py:pytype="str">one</fun_words>
+     <fun_words py:pytype="str">two</fun_words>
      <contact>
       <name>
        <last py:pytype="str">Hogan</last>
-       <first py:pytype="str">Paul</first>
+       <first py:pytype="str">Fred</first>
       </name>
      </contact>
-     <bob py:pytype="int">3</bob>
-     <mary py:pytype="str">Fine</mary>
+     <years py:pytype="int">3</years>
+     <condition py:pytype="str">Fine</condition>
     </australia>
 
 Cleanup.  We delete the previously-created document and close the connection.

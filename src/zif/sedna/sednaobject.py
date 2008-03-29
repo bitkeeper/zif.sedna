@@ -26,7 +26,7 @@ not intended to be particularly efficient, just workable.
 
 
 from lxml import objectify
-from lxml.etree import _Element, tounicode, tostring,fromstring, XMLSyntaxError
+from lxml.etree import _Element, tostring,fromstring, XMLSyntaxError
 from lxml.doctestcompare import norm_whitespace
 from dbapiexceptions import DatabaseError
 
@@ -37,7 +37,7 @@ def checkobj(obj,wf=True):
     if wf is True, we also check for well-formed-ness...
     """
     if isinstance(obj,_Element):
-        item = tounicode(obj)
+        item = tostring(obj,encoding=unicode)
     elif isinstance(obj,SednaElement):
         item = str(obj)
     else:
@@ -517,7 +517,6 @@ class SednaObjectifiedElement(object):
         while path.endswith('/'):
             path = path[:-1]
         self._path = path
-        #super(SednaElement,self).__init__(cursor,path, parser, check)
         if check:
             self._checkElement()
         g = self._getitem()
@@ -542,7 +541,7 @@ class SednaObjectifiedElement(object):
         'Cannot init SednaObjectifiedElement with multiple elements.')
 
     def replace(self,obj):
-        """ replace item at self.path with the object"""
+        """ replace item at self._path with the object"""
         item = checkobj(obj)
         q = u'update replace $i in %s ' % (self._path,)
         q += ' with %s' % (item,)
@@ -560,7 +559,7 @@ class SednaObjectifiedElement(object):
     save = store
 
     def __str__(self):
-        return lxml.etree.tostring(self._element)
+        return lxml.etree.tostring(self._element, encoding=unicode)
 
     def __setattr__(self,x,value):
         if x in ('_cursor','_path','_element'):
@@ -569,11 +568,11 @@ class SednaObjectifiedElement(object):
             setattr(self._element,x,value)
 
     def __setitem__(self,x,value):
-        """set an item as dict key"""
+        """dict setter"""
         self._element[x] = value
 
     def __getitem__(self,x):
-        """dict access to self"""
+        """dict getter"""
         return self._element[x]
 
     def __getattr__(self,x):
