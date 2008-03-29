@@ -261,7 +261,7 @@ class SednaElement(SednaXPath):
         if c == 1:
             return
         elif c == 0:
-            raise ValueError(
+            raise LookupError(
             'The path did not return an element. ([0] might need to be [1]?)')
         else:
             raise ValueError(
@@ -272,7 +272,7 @@ class SednaElement(SednaXPath):
         return parent as a SednaElement or None if at root
         """
         c = self.path + '/..'
-        t = SednaElement(self.cursor,c,self.parser)
+        t = SednaElement(self.cursor,c,self.parser, check=False)
         if t.tag is None:
             return None
         return t
@@ -360,8 +360,6 @@ class SednaElement(SednaXPath):
         self.cursor.execute(q)
         self._count = None
 
-
-
     def __iter__(self):
         q = u' %s/*' % self.path
         s = self.cursor.execute(q)
@@ -433,7 +431,7 @@ class SednaElement(SednaXPath):
             return [self.parser(item) for item in s]
         return s
 
-#Attribute access
+#Element attribute access
 
     @property
     def attrib(self):
@@ -488,3 +486,96 @@ class SednaElement(SednaXPath):
     def items(self):
         return self.attrib.items()
 
+class SednaObjectifiedElement(object):
+    """
+       An abstraction of a single Element and its children, objectified with
+       lxml.objectify.
+
+       init with the path and a cursor
+       path must refer to a single element that already exists in the database.
+
+       Usage would be:
+
+       - init with path and cursor,
+       - use the objectify API to modify the element
+       - store() or save() I have not decided...
+
+       The following attributes are used internally, and cannot be used in
+       your objects:
+        "_cursor"
+        "_path"
+        "_element"
+
+    """
+    def __init__(self,cursor,path,check=True):
+        """
+        init the class with cursor and path to item
+        set check to false to eliminate a server request, but only if you
+        know what you are doing...
+        """
+        self._cursor = cursor
+        while path.endswith('/'):
+            path = path[:-1]
+        self._path = path
+        #super(SednaElement,self).__init__(cursor,path, parser, check)
+        if check:
+            self._checkElement()
+        g = self._getitem()
+        self._element = objectify.fromstring(g)
+
+    def _checkElement(self):
+        """
+        do a check to see that this is a single element
+        """
+        q = u'let $i := %s' % (self._path,)
+        q += u' return <i><c>{count($i)}</c></i>'
+        s = self._cursor.execute(q)
+        f = objectify.fromstring(s.value)
+        c = int(f.c)
+        if c == 1:
+            return
+        elif c == 0:
+            raise LookupError(
+            'The path did not return an element. ([0] might need to be [1]?)')
+        else:
+            raise ValueError(
+        'Cannot init SednaObjectifiedElement with multiple elements.')
+
+    def replace(self,obj):
+        """ replace item at self.path with the object"""
+        item = checkobj(obj)
+        q = u'update replace $i in %s ' % (self._path,)
+        q += ' with %s' % (item,)
+        self._cursor.execute(q)
+
+    def _getitem(self):
+        q = u'%s' % self._path
+        s = self._cursor.execute(q)
+        t = s.value
+        return t
+
+    def store(self):
+        self.replace(self._element)
+
+    save = store
+
+    def __str__(self):
+        return lxml.etree.tostring(self._element)
+
+    def __setattr__(self,x,value):
+        if x in ('_cursor','_path','_element'):
+            self.__dict__[x]=value
+        else:
+            setattr(self._element,x,value)
+
+    def __setitem__(self,x,value):
+        """set an item as dict key"""
+        self._element[x] = value
+
+    def __getitem__(self,x):
+        """dict access to self"""
+        return self._element[x]
+
+    def __getattr__(self,x):
+        """this is only called when x is not in the local dict"""
+        return getattr(self._element,x)

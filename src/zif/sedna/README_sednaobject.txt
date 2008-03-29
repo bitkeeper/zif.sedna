@@ -229,13 +229,21 @@ Initialize a SednaElement with a cursor and an XPath expression:
     >>> path = u"doc('testx_region')/regions"
     >>> z = SednaElement(curs,path)
 
-It is an error if the expression returns more than one element.
+It is a value error if the expression returns more than one element.
 
     >>> path = u"doc('testx_region')/regions/*"
     >>> t = SednaElement(curs,path)
     Traceback (most recent call last):
     ...
     ValueError: Cannot init SednaElement with multiple elements.
+
+It is a LookupError if the expression returns no elements.
+
+    >>> path = u"doc('testx_region')/notpresent"
+    >>> t = SednaElement(curs,path)
+    Traceback (most recent call last):
+    ...
+    LookupError: The path did not return an element. ([0] might need to be [1]?)
 
 Len provides the number of child elements.
 
@@ -545,7 +553,44 @@ Here, we use lxml.objectify.fromstring.  Just trying a bunch of things...
       </contact>
     </australia>
 
-Cleanup.  We delete the previously-created documents and close the connection.
+zif.sedna.sednaobject.SednaObjectifiedElement
+----------------------------------
+
+SednaObjectifiedElement is a thin wrapper around lxml.objectify.
+
+Initialize a SednaObjectifiedElement with a cursor and an XPath expression:
+
+We'll pull in the item from the last example in SednaElement:
+    >>> from sednaobject import SednaObjectifiedElement
+    >>> q = u"doc('testx_region')/regions/"
+    >>> q += "*[city='Canberra']"
+    >>> t = SednaObjectifiedElement(curs,q)
+    >>> t['bob'] = 3
+    >>> t.mary = 'Fine'
+    >>> t.mary
+    'Fine'
+    >>> t['bob']
+    3
+    >>> t.save()
+    >>> t = SednaElement(curs,q)
+    >>> print t
+    <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
+     <region_id py:pytype="str">aus</region_id>
+     <city py:pytype="str">Canberra</city>
+     <fun_words py:pytype="str">g'day</fun_words>
+     <fun_words py:pytype="str">barbie</fun_words>
+     <fun_words py:pytype="str">sheila</fun_words>
+     <contact>
+      <name>
+       <last py:pytype="str">Hogan</last>
+       <first py:pytype="str">Paul</first>
+      </name>
+     </contact>
+     <bob py:pytype="int">3</bob>
+     <mary py:pytype="str">Fine</mary>
+    </australia>
+
+Cleanup.  We delete the previously-created document and close the connection.
 
     >>> for doc in ['testx_region']:
     ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc)
