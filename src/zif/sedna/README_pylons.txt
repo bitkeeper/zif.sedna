@@ -76,13 +76,29 @@ In your application's controller code, use the following
 
 # imports at module level
 from zope.rdb.interfaces import IZopeDatabaseAdapter
-from zope.component import getUtility
+import zope.component
 
 Put the following in a method that accesses the database. Note the call () at
 the end. 'testsedna' is the utility name by which you registered the connection,
 above.
 
-sednaConn = getUtility(IZopeDatabaseAdapter,'testsedna')()
+sednaConn = zope.component.getUtility(IZopeDatabaseAdapter,'testsedna')()
+
+If you want to use this adapter in multiple locations in your code within
+a transaction, you may want to write a database-connection-getter so that
+second and succeeding usages do not block.  Current policy is one connection
+per thread, and the block is there for thread safety. Here is an example.
+
+def getDb():
+    if not isinstance(c.dbconn,str):
+        return c.dbconn
+    else:
+        c.dbconn = zope.component.getUtility(IZopeDatabaseAdapter,'db')()
+        return getDb()
+
+Then,
+
+    sednaConn = getDb()
 
 This is a connection, much like any other database adapter.
 
@@ -117,3 +133,7 @@ Generally, failing queries will raise an exception. The database adapter
 takes care of begin(). repoze.tm takes care of commit() and rollback().
 Generally, commit() is called by default, and rollback() is called when there
 is an exception.
+
+Take a look at sednaobject as well.  sednaobject classes are initialized with
+a cursor and an XQuery string, and abstract many of the CRUD operations commonly
+required.

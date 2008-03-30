@@ -2,26 +2,26 @@
 zif.sedna.sednaobject
 =====================
 
-sednaobject has a few classes, SednaXPath, SednaElement, and
-SednaObjectifiedElement that abstract fetches and updates for a Sedna server.
+sednaobject has a few classes: SednaXQuery, SednaContainer, and
+SednaObjectifiedElement, that abstract fetches and updates for a Sedna server.
 
-SednaXpath is for readonly query results.  It provides list-like behavior.
-Access query result items by index, slice, or iteration.
+SednaXQuery is for readonly query results.  It provides list-like behavior.
+Access query result items by index, slice, or iteration.  It's for operations
+like working with the results of a SELECT in SQL.
 
-SednaElement provides a read-write elementtree-like interface to a single
-element and its children.  For container-like elements, it provides mutable
-access to children by index.  For more object-like elements, the "replace"
-method is likely to be useful.
+SednaContainer provides a read-write elementtree-like interface to a single
+element and its children.  It provides mutable access to children by index.
+It's for operations like working with a table or view in SQL.
 
 SednaObjectifiedElement is a thin wrapper around lxml.objectify for a single
-(object-like) element.
+(object-like) element.  It's for operations like working with a record in SQL.
 
-sednaobject requires lxml.  Items based on lxml Element are supported, so
+sednaobject requires lxml.  Items based on lxml Element are fully supported, so
 functionality provided by lxml.etree and lxml.objectify may be used for item
-creation and editing.  Plain-text xml may also be used.
+creation and editing.  Plain-text XML may also be used.
 
-sednaobject is blithely ignorant of namespaces, which is presumably OK for most
-applications.  Namespace-awareness will be added as necessary.
+sednaobject is transparent with regard to XML namespaces.  Namespace handling
+is something your application and the Sedna server do.
 
 We'll start with the usual test document in the test database:
 
@@ -39,26 +39,33 @@ We'll start with the usual test document in the test database:
     >>> conn.commit()
     True
 
-zif.sedna.sednaobject.SednaXPath
+zif.sedna.sednaobject.SednaXQuery
 --------------------------------
 
-SednaXPath is a class intended to abstract XQuery results to provide pythonic
-sequence methods.  XPath results are readonly, so this class mainly provides
-length, indexed access, and slicing.
+SednaXQuery is a class intended to abstract XQuery results to provide pythonic
+sequence methods.  SednaXQuery results are readonly, so this class mainly
+provides length, indexed access, and slicing.
 
-Initialize a SednaXPath with a cursor, an XQuery expression, and an optional
-parser:
+This class provides functionality similar to working with the results of a
+SELECT in SQL.
 
-    >>> from sednaobject import SednaXPath
+Initialize a SednaXQuery with a cursor, and an XQuery or XPath expression.  You
+may provide a parser that will be used on each result item.  There is a bit more
+about using a parser later.
+
+    >>> from sednaobject import SednaXQuery
     >>> curs = conn.cursor()
     >>> expr = u"doc('testx_region')/regions/*"
-    >>> z = SednaXPath(curs,expr)
+    >>> z = SednaXQuery(curs,expr)
+    >>> def null_parse(s):
+    ...     return s
+    >>> y = SednaXQuery(curs,expr,parser=null_parse)
 
 Get the length of the result:
 
     >>> len(z)
     6
-    >>> z.count()
+    >>> y.count()
     6
 
 Print the result in one shot.  To obtain this into a variable, use str().
@@ -180,7 +187,7 @@ return iterables will work fine:
 
     >>> q = u" for $i in doc('testx_region')/regions/* "
     >>> q += u" return $i/id_region/text() "
-    >>> z = SednaXPath(curs,q)
+    >>> z = SednaXQuery(curs,q)
     >>> len(z)
     6
     >>> z[0]
@@ -191,23 +198,21 @@ return iterables will work fine:
     [u'nam', u'sam']
 
 If you init the SednaXQuery object with a parser, results will be returned
-parsed with that parser if possible.  Good choices are lxml.etree.fromstring
-and lxml.objectify.fromstring. If parsing fails, the text representation will
-be returned.
+parsed with that parser.  Good choices are lxml.etree.fromstring and
+lxml.objectify.fromstring. Do not init with an XML parser if the results are
+not XML.  You are not limited to XML parsers.
 
-    >>> z = SednaXPath(curs,q,parser=fromstring)
-    >>> type(z[0])
-    <type 'unicode'>
-    >>> z[-2:]
-    [u'nam', u'sam']
+    >>> z = SednaXQuery(curs,q,parser=fromstring)
     >>> z[0]
-    u'afr'
+    Traceback (most recent call last):
+    ...
+    XMLSyntaxError: Start tag expected, '<' not found, line 1, column 1
     >>> expr = u"doc('testx_region')/regions"
-    >>> z = SednaXPath(curs,expr,parser=fromstring)
+    >>> z = SednaXQuery(curs,expr,parser=fromstring)
     >>> z[0].tag
     'regions'
     >>> expr = u"doc('testx_region')/regions/*"
-    >>> z = SednaXPath(curs,expr,parser=fromstring)
+    >>> z = SednaXQuery(curs,expr,parser=fromstring)
     >>> type(z[0])
     <type 'lxml.etree._Element'>
     >>> [item.tag for item in z]
@@ -216,34 +221,36 @@ be returned.
     ['australia', 'europe']
 
 
-zif.sedna.sednaobject.SednaElement
+zif.sedna.sednaobject.SednaContainer
 ----------------------------------
 
-SednaElement is a class intended to abstract an Element on the server to
+SednaContainer is a class intended to abstract an Element on the server to
 provide elementtree-like methods, particularly element information and
 modification for persistence. This is a read-write interface and very handy for
-container elements.  We do commits periodically here.  We want to show error
-messages, and Sedna seems to be rolling back state on certain errors.
+container elements.
 
-Initialize a SednaElement with a cursor and an XPath expression:
+This class provides functionality similar to operating on a table or view
+in SQL.
 
-    >>> from sednaobject import SednaElement
+Initialize a SednaContainer with a cursor and an XPath expression:
+
+    >>> from sednaobject import SednaContainer
     >>> curs = conn.cursor()
     >>> path = u"doc('testx_region')/regions"
-    >>> z = SednaElement(curs,path)
+    >>> z = SednaContainer(curs,path)
 
 It is a value error if the expression returns more than one element.
 
     >>> path = u"doc('testx_region')/regions/*"
-    >>> t = SednaElement(curs,path)
+    >>> t = SednaContainer(curs,path)
     Traceback (most recent call last):
     ...
-    ValueError: Cannot init SednaElement with multiple elements.
+    ValueError: Cannot init SednaContainer with multiple elements.
 
 It is a LookupError if the expression returns no elements.
 
     >>> path = u"doc('testx_region')/notpresent"
-    >>> t = SednaElement(curs,path)
+    >>> t = SednaContainer(curs,path)
     Traceback (most recent call last):
     ...
     LookupError: The path did not return an element. ([0] might need to be [1]?)
@@ -278,7 +285,7 @@ Obtain the element in one shot:
      </samerica>
     </regions>
 
-Item access works as with SednaXPath, except you get the items within the
+Item access works as with SednaXQuery, except you get the items within the
 Element instead of the items of the list returned by the query:
 
     >>> z[0]
@@ -304,15 +311,13 @@ entire item, so do this sparingly:
     {'attr': 'something'}
     >>> z.get('attr')
     u'something'
-    >>> z.cursor.connection.commit()
-    True
 
 Sometimes, you have a somewhat atomic element, and just want to replace the
 entire item with an update.
 
     >>> idx = z.xindex(z[0])
     >>> p = z.path + '/' + '*[%s]' % idx
-    >>> t = SednaElement(z.cursor,p)
+    >>> t = SednaContainer(z.cursor,p)
     >>> print t
     <africa>
      <id_region>afr</id_region>
@@ -348,8 +353,6 @@ must be well-formed.
    ...     z[idx] = t
    >>> print z[2]
    <australia><region_id>aus</region_id></australia>
-   >>> z.cursor.connection.commit()
-   True
    >>> z[0] = 'fred'
    Traceback (most recent call last):
    ...
@@ -367,8 +370,6 @@ representation of the item provided.
    7
    >>> z[-1]
    u'<antarctica><region_id>ant</region_id></antarctica>'
-   >>> z.cursor.connection.commit()
-   True
    >>> z.append('hello')
    Traceback (most recent call last):
    ...
@@ -453,16 +454,16 @@ following is correct.
     >>> z.index(z[-1])
     2
 
-You may obtain the path SednaElement was initialized with.
+You may obtain the path SednaContainer was initialized with.
     >>> z.path
     u"doc('testx_region')/regions"
 
 It is sometimes handy to obtain the parent of an element.  When getparent()
 returns None, you are at root. .parent is a synonym.  The parent returned
-is a SednaElement.
+is a SednaContainer.
 
     >>> p = z.path + '/' + '*[1]'
-    >>> t = SednaElement(z.cursor,p)
+    >>> t = SednaContainer(z.cursor,p)
     >>> t.tag
     'asia'
     >>> s = t.parent
@@ -471,24 +472,26 @@ is a SednaElement.
     >>> s = t.getparent()
     >>> s.tag
     'regions'
-    >>> isinstance(s,SednaElement)
+    >>> isinstance(s,SednaContainer)
     True
     >>> f = s.getparent()
     >>> f is None
     True
 
-If you init a SednaElement with a parser, returned items will be parsed with
+If you init a SednaContainer with a parser, returned items will be parsed with
 that parser. "fromstring" here is lxml.etree.fromstring
     >>> path = u"doc('testx_region')/regions"
-    >>> z = SednaElement(curs,path,parser=fromstring)
+    >>> z = SednaContainer(curs,path,parser=fromstring)
     >>> [item.tag for item in z]
     ['asia', 'australia', 'namerica', 'europe', 'asia', 'australia', 'namerica']
     >>> z[0].tag
     'asia'
 
-Here, we use lxml.objectify.fromstring.  Just trying a bunch of things...
+Here, we use lxml.objectify.fromstring.  Just trying a bunch of things.  If you
+want to work with a single object in this manner, you may consider using
+SednaObjectifiedElement instead.
 
-    >>> z = SednaElement(curs,path,parser=objectify.fromstring)
+    >>> z = SednaContainer(curs,path,parser=objectify.fromstring)
     >>> [item.tag for item in z]
     ['asia', 'australia', 'namerica', 'europe', 'asia', 'australia', 'namerica']
     >>> z[1].tag
@@ -530,6 +533,9 @@ Here, we use lxml.objectify.fromstring.  Just trying a bunch of things...
     [u'\u20ac (euro symbol)', 3, False, 4.0, -25, None, True, 'true']
     >>> '%s, %s' % (m.contact.name.last, m.contact.name.first)
     'Hogan, Paul'
+
+Let's create an objectified element from scratch and replace the existing item.
+
     >>> t = objectify.Element('australia')
     >>> t.region_id = 'aus'
     >>> t.city = "Canberra"
@@ -564,13 +570,19 @@ SednaObjectifiedElement is a thin wrapper around lxml.objectify.
 Initialize a SednaObjectifiedElement with a cursor and an XPath expression.
 Path must refer to a single element that already exists in the database.
 
-We'll pull in the item from the last example in SednaElement:
+This class provides functionality similar to working with a record in SQL.
+
+We'll pull in the item from the last example in SednaContainer:
     >>> from sednaobject import SednaObjectifiedElement
     >>> q = u"doc('testx_region')/regions/"
     >>> q += '*[city="Canberra" and region_id="aus"]'
     >>> t = SednaObjectifiedElement(curs,q)
 
-Since this is just a wrapper, we do modifications as in objectify.
+Since this is just a wrapper around lxml.objectify, we do modifications as in
+objectify. "_cursor", "_path", and "_element" are used internally by
+SednaObjectifiedElement and cannot be set into the first level of the database
+object.  The same problem exists for python reserved keywords.  The work-around
+is to use dict notation.
 
     >>> t['years'] = 3
     >>> t.condition = 'Fine'
@@ -579,15 +591,21 @@ Since this is just a wrapper, we do modifications as in objectify.
     >>> t.years
     3
     >>> t.fun_words = ['one', 'two']
-    >>> t.contact.name['first'] = 'Fred'
+    >>> t.contact['name']['first'] = 'Fred'
+    >>> t.store = 'Wal-Mart'
+    >>> t._cursor = 'Bob'
+    Traceback (most recent call last):
+    ...
+    ValueError: Oops. _cursor, _path, and _element are used internally.
+    >>> t['_cursor'] = 'Bob'
 
-Important: save modifications.  store() is a synonym.
+Important: save modifications.  update() is a synonym for save().
 
     >>> t.save()
 
 Now, we verify that the save persisted the modifications.
 
-    >>> t = SednaElement(curs,q)
+    >>> t = SednaContainer(curs,q)
     >>> print t
     <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
      <region_id py:pytype="str">aus</region_id>
@@ -602,6 +620,8 @@ Now, we verify that the save persisted the modifications.
      </contact>
      <years py:pytype="int">3</years>
      <condition py:pytype="str">Fine</condition>
+     <store py:pytype="str">Wal-Mart</store>
+     <_cursor py:pytype="str">Bob</_cursor>
     </australia>
 
 Cleanup.  We delete the previously-created document and close the connection.

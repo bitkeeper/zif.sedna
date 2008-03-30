@@ -1,27 +1,28 @@
-#sednaobject
+#sednaobject.py
 
 """
-sednaobject has a couple of classes, SednaXPath and SednaElement, that abstract
-fetches and updates for a Sedna XML database server.
+sednaobject has a few classes: SednaXQuery, SednaContainer, and
+SednaObjectifiedElement, that abstract fetches and updates for a Sedna server.
 
-SednaXpath is for readonly query results.  It provides list-like behavior.
-Access query result items by index, slice, or iteration.
+SednaXQuery is for readonly query results.  It provides list-like behavior.
+Access query result items by index, slice, or iteration.  It's for operations
+like working with the results of a SELECT in SQL.
 
-SednaElement provides a read-write elementtree-like interface to a single
-element and its children.  For container-like elements, it provides mutable
-access to children by index.  For more object-like elements, the "replace"
-method is likely to be useful.
+SednaContainer provides a read-write elementtree-like interface to a single
+element and its children.  It provides mutable access to children by index.
+It's for operations like working with a table or view in SQL.
 
-sednaobject requires lxml.  Items based on lxml Element are supported, so
+SednaObjectifiedElement is a thin wrapper around lxml.objectify for a single
+(object-like) element.  It's for operations like working with a record in SQL.
+It you do not want to use lxml.objectify, it provides a pattern for doing
+something similar with your preferred parser.
+
+sednaobject requires lxml.  Items based on lxml Element are fully supported, so
 functionality provided by lxml.etree and lxml.objectify may be used for item
-creation and editing.  Plain-text xml may also be used.
+creation and editing.  Plain-text XML may also be used.
 
-sednaobject is blithely ignorant of namespaces, which is presumably OK for most
-applications.  Namespace-awareness will be added as necessary.
-
-many of the methods here are of a naive, "just make it work" nature.  They are
-not intended to be particularly efficient, just workable.
-
+sednaobject is transparent with regard to XML namespaces.  Namespace handling
+is something your application and the Sedna server do.
 """
 
 
@@ -38,7 +39,7 @@ def checkobj(obj,wf=True):
     """
     if isinstance(obj,_Element):
         item = tostring(obj,encoding=unicode)
-    elif isinstance(obj,SednaElement):
+    elif isinstance(obj,SednaContainer):
         item = str(obj)
     else:
         if wf:
@@ -49,7 +50,7 @@ def checkobj(obj,wf=True):
         item = obj
     return item
 
-class SednaXPath(object):
+class SednaXQuery(object):
     """class for read-only xpath queries.  Makes the query result sequence-like.
       slices and stuff...
     """
@@ -81,9 +82,9 @@ class SednaXPath(object):
         """
         if path.startswith('/'):
             base = self.path.split('/')[0]
-            return SednaXPath(self.cursor,base+path)
+            return SednaXQuery(self.cursor,base+path)
         else:
-            return SednaXPath(self.cursor,self.path + '/' + path)
+            return SednaXQuery(self.cursor,self.path + '/' + path)
 
     def _localKey(self,key):
         """
@@ -105,11 +106,6 @@ class SednaXPath(object):
         if index < 0:
             index += self.count()
         item = self[index:index+1][0]
-        #if self.parser:
-            #try:
-                #item = self.parser(item)
-            #except XMLSyntaxError:
-                #pass
         return item
 
     def index0(self,obj):
@@ -202,18 +198,12 @@ class SednaXPath(object):
         q += u'return $i'
         s = list(self.cursor.execute(q))
         if self.parser:
-            try:
-                return [self.parser(item) for item in s]
-            except XMLSyntaxError:
-                pass
+            return [self.parser(item) for item in s]
         return s
 
     def _iterparse(self,s):
         for item in s:
-            try:
-                i = self.parser(item)
-            except XMLSyntaxError:
-                i = item
+            i = self.parser(item)
             yield i
 
     def __iter__(self):
@@ -232,7 +222,7 @@ class SednaXPath(object):
         return self.count()
 
 
-class SednaElement(SednaXPath):
+class SednaContainer(SednaXQuery):
     """a class to emulate read-write ElementTree functionality on an element in
        the Sedna database.
 
@@ -245,7 +235,7 @@ class SednaElement(SednaXPath):
         set check to false to eliminate a server request, but only if you
         know what you are doing...
         """
-        super(SednaElement,self).__init__(cursor,path, parser)
+        super(SednaContainer,self).__init__(cursor,path, parser)
         if check:
             self._checkElement()
 
@@ -265,14 +255,14 @@ class SednaElement(SednaXPath):
             'The path did not return an element. ([0] might need to be [1]?)')
         else:
             raise ValueError(
-        'Cannot init SednaElement with multiple elements.')
+        'Cannot init SednaContainer with multiple elements.')
 
     def getparent(self):
         """
-        return parent as a SednaElement or None if at root
+        return parent as a SednaContainer or None if at root
         """
         c = self.path + '/..'
-        t = SednaElement(self.cursor,c,self.parser, check=False)
+        t = SednaContainer(self.cursor,c,self.parser, check=False)
         if t.tag is None:
             return None
         return t
@@ -498,7 +488,7 @@ class SednaObjectifiedElement(object):
 
        - init with path and cursor,
        - use the objectify API to modify the element
-       - store() or save() I have not decided...
+       - update() or save() I have not decided...
 
        The following attributes are used internally, and cannot be used in
        your objects:
@@ -519,7 +509,7 @@ class SednaObjectifiedElement(object):
         self._path = path
         if check:
             self._checkElement()
-        g = self._getitem()
+        g = self._fromdb()
         self._element = objectify.fromstring(g)
 
     def _checkElement(self):
@@ -547,22 +537,44 @@ class SednaObjectifiedElement(object):
         q += ' with %s' % (item,)
         self._cursor.execute(q)
 
-    def _getitem(self):
+    def _fromdb(self):
         q = u'%s' % self._path
         s = self._cursor.execute(q)
         t = s.value
         return t
 
-    def store(self):
+    def getparent(self):
+        """
+        return parent as a SednaContainer or None if at root
+        """
+        c = self.path + '/..'
+        t = SednaContainer(self.cursor,c,self.parser, check=False)
+        if t.tag is None:
+            return None
+        return t
+
+    parent = property(getparent)
+
+    def update(self):
         self.replace(self._element)
 
-    save = store
+    save = update
 
     def __str__(self):
         return lxml.etree.tostring(self._element, encoding=unicode)
 
     def __setattr__(self,x,value):
         if x in ('_cursor','_path','_element'):
+            try:
+                if x == '_cursor':
+                    assert hasattr(value,'execute')
+                elif x == '_path':
+                    assert isinstance(value,basestring)
+                elif x == '_element':
+                    assert isinstance(value,_Element)
+            except AssertionError:
+                raise ValueError(
+            "Oops. _cursor, _path, and _element are used internally.")
             self.__dict__[x]=value
         else:
             setattr(self._element,x,value)
@@ -576,5 +588,8 @@ class SednaObjectifiedElement(object):
         return self._element[x]
 
     def __getattr__(self,x):
-        """this is only called when x is not in the local dict"""
+        """self.x getter.
+        this is only called when x is not in the local dict, so we
+        obtain it from the _element
+        """
         return getattr(self._element,x)

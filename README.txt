@@ -1,6 +1,6 @@
-****************
+*********
 zif.sedna
-****************
+*********
 
 Sedna, available at http://modis.ispras.ru/sedna/, under Apache 2.0 license, is
 a transactional native XML database operating over TCP/IP.  Sedna is open
@@ -36,17 +36,23 @@ useful features.
 
 zif.sedna provides
 
-    a connection and query interface to a Sedna server
+    - a connection and query interface to a Sedna server
 
-    a dbapi-like interface (e.g., connections and cursors)
+    - a dbapi-like interface (e.g., connections and cursors)
 
-    a database adapter for zope(3) with connection pooling and (provisional)
+    - a database adapter for zope(3) with connection pooling and (provisional)
     thread safety.
 
-    sednaobject, which provides pythonic interfaces to the Sedna server for
-    CRUD operations. It abstracts read-only query results into python
-    sequence-like items and also provides a read-write elementtree-like
-    interface for managing individual elements and their descendents.
+    - sednaobject, which provides pythonic interfaces to the Sedna server for
+      CRUD operations. It abstracts read-only query results into python
+      sequence-like items and also provides a read-write elementtree-like
+      interface for managing individual elements and their descendents.
+
+       - SednaXQuery, for operations like handling SELECT results in SQL
+
+       - SednaContainer, for operations like working with a table or view in SQL
+
+       - SednaObjectifiedElement, for operations like modifying a record in SQL
 
 See 'src/zif/sedna/README.txt' for more information and doctest examples.
 See 'src/zif/sedna/README_da.txt' to use the zope3 database adapter in zope.
@@ -57,21 +63,30 @@ See 'src/zif/sedna/README_pylons.txt' to use the zope3 database adapter in
 Releases
 ********
 
-================
+====================
 0.9 beta (2008/02/07)
-================
+====================
 Initial release
 
-================
+======================
 0.9 beta2 (2008/02/15)
-================
+======================
 Support pyformat %(var)s for atomic values in BasicCursor.
 Improved thread friendliness.
 Preliminary instructions for use with pylons.
 
-================
+========================
 0.10 alpha1 (2008/03/23)
-================
+========================
 sednaobject provided. Abstractions for pythonic CRUD operations.
 lxml now required
+
+========================
+0.10 alpha2 (2008/03/30)
+========================
+renamed sednaobject.SednaXPath to SednaXQuery
+renamed sednaobject.SednaElement to SednaContainer
+added sednaobject.SednaObjectifiedElement, a lightweight wrapper around
+    lxml.objectify, for operating with record-like objects.
+more parser-agnostic about results
 
