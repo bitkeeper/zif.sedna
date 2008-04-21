@@ -16,7 +16,7 @@ except ImportError:
 
 apilevel = 2.0
 threadsafety = 2
-paramstyle = 'format'
+paramstyle = 'pyformat'
 
 def connect(dsn=None,host=None,database=None,username=None,password=None,
         port=5050,trace=False):

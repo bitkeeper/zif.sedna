@@ -2,8 +2,13 @@
 sedna instruction codes
 """
 
+# session options
+
 DEBUG_OFF = 0
 DEBUG_ON = 1
+READONLY_TRANSACTION = 2
+UPDATE_TRANSACTION = 3
+
 
 SEDNA_ERROR_RESPONSE = 100
 

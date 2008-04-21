@@ -17,18 +17,14 @@ You need zif.sedna
 
 # easy_install zif.sedna
 
-For transaction support, you want repoze.tm
+For transaction support, you want repoze.tm2
 
 Yes, you want transaction support. If you do not do this, you will need to be
 very diligent with begin() and commit()/rollback() on connections.  For thread
 safety, the adapter blocks beginning transactions in a thread until the current
 transaction is complete.
 
-# easy_install -i http://dist.repoze.org/simple repoze.tm
-
-NOTE: When I did this, setuptools complained about differing versions of ZODB.
-I think this is harmless, but maybe installing repoze.tm before zope.rdb may
-silence the complaint.
+# easy_install -i http://dist.repoze.org/simple repoze.tm2
 
 Do the "Configuring the Application" part of
 http://blog.repoze.org/repoze.tm_with_pylons-20071218.html
@@ -40,7 +36,7 @@ stanzas in the paste .ini file
 pipeline=
     egg:Paste#cgitb
     egg:Paste#httpexceptions
-    egg:repoze.tm#tm
+    egg:repoze.tm2#tm
     test
 
 [app:test]

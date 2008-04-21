@@ -2,8 +2,8 @@ Sedna is a read-write xml storage.  The interface is a network socket, using
 message-passing for queries and updates.   Queries are according to the
 W3C XQuery standard.  Updates are an extension of XQuery.
 
-Installing Sedna and XQuery syntax is beyond the scope of this document.  Sedna
-has Apache 2.0 license and may be obtained from
+Installing Sedna and learning XQuery syntax is beyond the scope of this
+document.  Sedna has Apache 2.0 license and may be obtained from
 
 http://modis.ispras.ru/sedna/
 
@@ -64,16 +64,14 @@ or rolled back before the connection is closed.
 
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> result = conn.execute(u'for $i in (1,2,3) return <z>{$i}</z>')
-    >>> print result.value
-    <z>1</z>
-    <z>2</z>
-    <z>3</z>
+    >>> print(result.value)
+    <z>1</z><z>2</z><z>3</z>
     >>> result.value
     u''
     >>> result = conn.execute(u'for $i in (1,2,3) return <z>{$i}</z>')
     >>> res = list(result)
-    >>> print res
-    [u'<z>1</z>', u'\n<z>2</z>', u'\n<z>3</z>']
+    >>> print(res)
+    [u'<z>1</z>', u'<z>2</z>', u'<z>3</z>']
     >>> conn.commit()
     True
 
@@ -113,14 +111,13 @@ If we try to load this file again with the same name, we get an error.
     ...
     DatabaseError: [163] SEDNA Message: ERROR SE2001
     Document with the same name already exists.
+    Details: testx_region
 
-Let's see what's in the document. Note that the resulting output is nicely
-formatted.  This is done with leading space and following newline ('\\n')
-characters in each line of the result.  Since this is XML, they are just there
-for output formatting and are not really in the document.
+Let's see what's in the document. Note that we set pretty_print to True so that
+the resulting output is nicely formatted.
 
-    >>> result = conn.execute(u'doc("testx_region")/*/*')
-    >>> print result.value
+    >>> result = conn.execute(u'doc("testx_region")/*/*', pretty_print=True)
+    >>> print(result.value)
     <africa>
      <id_region>afr</id_region>
     </africa>
@@ -140,24 +137,17 @@ for output formatting and are not really in the document.
      <id_region>sam</id_region>
     </samerica>
 
-Extra spaces and newlines may be turned off inside a query with a declaration
-provided by Sedna.
-
-    >>> ns = u'declare namespace se = "http://www.modis.ispras.ru/sedna";'
-    >>> newquery=ns+'declare option se:output "indent=no";'
-    >>> newquery = newquery + 'document("testx_region")/*/asia'
-    >>> result = conn.execute(newquery)
-    >>> print result.value
+    >>> newquery = u'document("testx_region")/*/asia'
+    >>> result = conn.execute(newquery, pretty_print=False)
+    >>> print(result.value)
     <asia><id_region>asi</id_region></asia>
 
 XQuery lets you get just part of the document. Note that 'doc' and 'document'
 are synonymous.
 
     >>> data = conn.execute(u'doc("testx_region")//*[id_region="eur"]')
-    >>> print data.value
-    <europe>
-     <id_region>eur</id_region>
-    </europe>
+    >>> print(data.value)
+    <europe><id_region>eur</id_region></europe>
 
 Let's store a new document from just a string. 'BS' stands for 'bookstore'.
 We shortened it for readability in this document.
@@ -205,9 +195,10 @@ If we did not get any exceptions, the document is loaded.  Let's do a query
 for books with price > 30.  We'll iterate the result and print the items.  We
 strip() the individual results to remove trailing newline characters.
 
-    >>> result = conn.execute(u'document("BS")//book[price>30]')
+    >>> result = conn.execute(u'document("BS")//book[price>30]',
+    ...     pretty_print=True)
     >>> for item in result:
-    ...     print item.strip()
+    ...     print(item.strip())
     <book category="WEB">
      <title lang="en">XQuery Kick Start</title>
      <author>James McGovern</author>
@@ -227,8 +218,8 @@ strip() the individual results to remove trailing newline characters.
 
 We can get a book by its index. XQuery indices are 1 based; 2 means second book.
 
-    >>> result = conn.execute(u'document("BS")/BS/book[2]')
-    >>> print result.value
+    >>> result = conn.execute(u'document("BS")/BS/book[2]', pretty_print=True)
+    >>> print(result.value)
     <book category="CHILDREN">
      <title lang="en">Harry Potter</title>
      <author>J K. Rowling</author>
@@ -238,8 +229,8 @@ We can get a book by its index. XQuery indices are 1 based; 2 means second book.
 
 We can get the last book.
 
-    >>> result = conn.execute(u'doc("BS")/BS/book[last()]')
-    >>> print result.value
+    >>> result = conn.execute(u'doc("BS")/BS/book[last()]', pretty_print=True)
+    >>> print(result.value)
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -251,8 +242,8 @@ We can get the count of the books.
 
     >>> query = u"""let $items := doc('BS')/BS/book
     ...    return <count>{count($items)}</count>"""
-    >>> result = conn.execute(query)
-    >>> print result.value
+    >>> result = conn.execute(query, pretty_print=True)
+    >>> print(result.value)
     <count>4</count>
 
 Empty results return an empty string.
@@ -276,8 +267,8 @@ Let's get the second book with a price greater than 30.
 
     >>> prevQuery = u'document("BS")//book[price>30]'
     >>> query = prevQuery + '[2]'
-    >>> result = conn.execute(query)
-    >>> print result.value
+    >>> result = conn.execute(query, pretty_print=True)
+    >>> print(result.value)
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -307,8 +298,8 @@ Here's a query longer than 10240 bytes.  It will go through anyway.
 Let's try an update
 
     >>> qry = u'document("BS")//book[title="Learning XML"]'
-    >>> data = conn.execute(qry)
-    >>> print data.value
+    >>> data = conn.execute(qry, pretty_print=True)
+    >>> print(data.value)
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -323,13 +314,13 @@ into the item.  We also look at mixed-mode element handling here.
     >>> ins = '<quality>Great <i>happy </i>quality</quality>'
     >>> qry2 = 'UPDATE insert %s into %s' % (ins,qry)
     >>> update = conn.execute(qry2)
-    >>> print update
+    >>> print(update)
     True
 
 OK. Update succeeded.  Let's see the new item.
 
-    >>> check = conn.execute(qry)
-    >>> print check.value
+    >>> check = conn.execute(qry, pretty_print=True)
+    >>> print(check.value)
     <book category="WEB">
      <quality>Great <i>happy </i>quality</quality>
      <title lang="en">Learning XML</title>
@@ -351,7 +342,7 @@ What about rollbacks? Let's try one.
 
 We have a <quality> element in the book. Let's delete it.
 
-    >>> print result.value
+    >>> print(result.value)
     <quality>Great <i>happy </i>quality</quality>
     >>> qry2 = u'UPDATE delete %s' % qry
     >>> result = conn.execute(qry2)
@@ -376,7 +367,7 @@ We reopen the database just to be sure that we are not looking at a cache.
 
 The <quality> element is back! Rollback successful!
 
-    >>> print data.value
+    >>> print(data.value)
     <quality>Great <i>happy </i>quality</quality>
 
 We've done update and delete.  Now, let's do a "replace".  We raise the price
@@ -390,8 +381,8 @@ We've done update and delete.  Now, let's do a "replace".  We raise the price
     >>> data = conn.execute(qry)
     >>> data
     True
-    >>> data = conn.execute(qry0)
-    >>> print data.value
+    >>> data = conn.execute(qry0, pretty_print=True)
+    >>> print(data.value)
     <price>33</price>
     <price>32.99</price>
     <price>54.99</price>
@@ -407,8 +398,8 @@ like. The default format is 0, XML.  1 gives us SXML.  Maybe useful if you have
 an SXML parser.  It is smaller...
 
     >>> qry = u'document("BS")//book[title="Learning XML"]'
-    >>> data = conn.execute(qry,format=1)
-    >>> print data.value
+    >>> data = conn.execute(qry,format=1,pretty_print=True)
+    >>> print(data.value)
     (book(@ (category  "WEB"))
      (quality"Great "(i"happy ")"quality")
      (title(@ (lang  "en"))"Learning XML")
@@ -431,9 +422,9 @@ available in the connection object per PEP-249. This query should be an XQuery
 syntax error, so will be caught right when the query is sent.
 
     >>> try:
-    ...     result = conn.execute(u'hello world')
+    ...     result = conn.execute(u'hello world', pretty_print=True)
     ... except conn.DatabaseError,e:
-    ...     print e
+    ...     print(e)
     [3] SEDNA Message: ERROR XPST0003
         It is a static error if an expression is not a valid instance of the grammar defined in A.1 EBNF.
     Details: syntax error at token: 'world', line: 1
@@ -500,7 +491,7 @@ look like of we raise it another 10% on the "Learning XML" book.
     ... let $price := round-half-to-even($item/price * 1.1,2)
     ... where $item/title = "Learning XML"
     ... return <price>{$price}</price>'''
-    >>> data = conn.execute(qry)
+    >>> data = conn.execute(qry, pretty_print=True)
     INFO:root:(C) SEDNA_BEGIN_TRANSACTION
     INFO:root:(S) SEDNA_BEGIN_TRANSACTION_OK
     INFO:root:(C) SEDNA_EXECUTE for $item in document("BS")//book
@@ -511,7 +502,7 @@ look like of we raise it another 10% on the "Learning XML" book.
     INFO:root:(S) SEDNA_ITEM_PART <price>48.35</price>
     INFO:root:(S) SEDNA_ITEM_END
 
-    >>> print data.value
+    >>> print(data.value)
     INFO:root:(C) SEDNA_GET_NEXT_ITEM
     INFO:root:(S) SEDNA_RESULT_END
     <price>48.35</price>
@@ -527,12 +518,33 @@ Reset the log level.
 
     >>> log.setLevel(logging.ERROR)
 
+Since Sedna version 3.0, we can make a transaction readonly.  This reduces
+blocking for concurrent read-write transactions.  A transaction is read-write
+by default.  You need to setReadonly before begin() or the first query to be
+effective.  Readonly queries will use the latest snapshot of the database.
+Snapshots are generated when a certain fraction of the database changes, the
+upd_crt parameter in [sedna folder]/cfg/[database name]_cfg.xml.  We cannot
+assume that a new snapshot has been generated here, so we cannot demonstrate.
+It is an error to execute an update query within a readonly transaction.
+This example works in my set-up, probably will not work in yours, so it is
+commented-out.
+
+    >>> #conn = protocol.SednaProtocol(host,db,login,passwd,port)
+    >>> #conn.setReadonly(True)
+    >>> #qry = u"UPDATE insert <hello/> into document('temp')/temp/class"
+    >>> #data = conn.execute(qry)
+    Traceback (most recent call last):
+    ...
+    DatabaseError: [424] SEDNA Message: ERROR SE4706
+    Cannot provide X-locks in RO-mode
+    >>> #conn.close()
+
 Final cleanup. We'll remove the documents we created.
 
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.begin()
     >>> for doc in ['testx_region','BS']:
-    ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc)
+    ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc, pretty_print=True)
     >>> conn.commit()
     True
     >>> conn.close()

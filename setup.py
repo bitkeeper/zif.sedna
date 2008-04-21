@@ -16,7 +16,7 @@ def read(*rnames):
 
 setup(
     name = 'zif.sedna',
-    version = '0.10alpha2',
+    version = '0.10alpha3',
     license = 'BSD',
     description = 'Sedna XML Database adapter',
     long_description = (
@@ -25,6 +25,15 @@ setup(
         'Download\n'
         '**********************\n'
         ),
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Programming Language :: Python",
+        "License :: OSI Approved :: BSD License",
+        "Topic :: Database",
+        "Topic :: Text Processing :: Markup :: XML",
+        "Topic :: Software Development :: Libraries"
+        ],
     keywords = 'sedna xml database zope persistence xquery',
     author = 'Jim Washington',
     author_email = 'jwashin@vt.edu',

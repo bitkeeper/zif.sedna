@@ -168,17 +168,18 @@ class BasicCursor(object):
     def __init__(self,connection):
         self.connection = connection
 
-    def execute(self,statement, parameters=None):
+    def execute(self,statement,parameters=None,pretty_print=False):
         if parameters:
             statement = statement % escapeAndQuote(parameters)
-        self.result =  self.connection.execute(statement)
+        self.result =  self.connection.execute(statement,
+                pretty_print=pretty_print)
         return self.result
 
-    def executemany(self,statements,parameters=None):
+    def executemany(self,statements,parameters=None,pretty_print=False):
         for statement in statements:
             if parameters:
                 statement = statement % escapeAndQuote(parameters)
-                self.execute(statement)
+                self.execute(statement,pretty_print=pretty_print)
 
     def __iter__(self):
         return iter(self.result)
@@ -340,7 +341,7 @@ class SednaProtocol(object):
 
     # queries
 
-    def execute(self,query,format=0):
+    def execute(self,query,format=0,pretty_print=False):
         """
         Send query to the Sedna server.
 
@@ -357,6 +358,9 @@ class SednaProtocol(object):
             query = query.encode('utf-8')
         else:
             raise ProgrammingError("Expected unicode, got %s." % type(query))
+        if not pretty_print:
+            noindent = 'declare option se:output "indent=no";'
+            query = '%s\n%s' % (noindent,query)
         if not self.inTransaction:
             self.begin()
         self.error = None
@@ -451,7 +455,7 @@ class SednaProtocol(object):
         if collection_name:
             s += ' "%s"' % collection_name
         try:
-            res = self.execute(s)
+            res = self.execute(s,pretty_print=True)
         finally:
             #always clear input buffer
             self._inputBuffer = ''
@@ -471,7 +475,7 @@ class SednaProtocol(object):
         s = u'LOAD "%s" "%s"' % (filename, document_name)
         if collection_name:
             s += u' "%s"' % collection_name
-        return self.execute(s)
+        return self.execute(s,pretty_print=True)
 
 # database metadata sugar
 
@@ -524,6 +528,21 @@ class SednaProtocol(object):
             name = item.get('name')
             theList.append(name)
         return theList
+
+# 3.0 read-only transactions
+
+    def setReadonly(self, bool):
+        """
+        connection.transactionReadonly(True)
+        connection.transactionReadonly(False)
+        """
+        if bool:
+            val = READONLY_TRANSACTION
+        else:
+            val = UPDATE_TRANSACTION
+        token = SEDNA_SET_SESSION_OPTIONS
+        data = pack("!I",val)+zString('')
+        self._send_string(data,token)
 
 # debug helpers
 
@@ -656,7 +675,6 @@ class SednaProtocol(object):
         if self.socket:
             # found this on the net,  It's supposed to be faster than default?
             self.socket.setsockopt(socket.SOL_TCP,socket.TCP_NODELAY,0)
-        # start handshaking and authenticating
         self.closed = False
 
 # communication with the server

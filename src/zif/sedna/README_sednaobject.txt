@@ -56,10 +56,10 @@ about using a parser later.
     >>> from sednaobject import SednaXQuery
     >>> curs = conn.cursor()
     >>> expr = u"doc('testx_region')/regions/*"
-    >>> z = SednaXQuery(curs,expr)
+    >>> z = SednaXQuery(curs,expr,pretty_print=True)
     >>> def null_parse(s):
     ...     return s
-    >>> y = SednaXQuery(curs,expr,parser=null_parse)
+    >>> y = SednaXQuery(curs,expr,parser=null_parse, pretty_print=True)
 
 Get the length of the result:
 
@@ -70,7 +70,7 @@ Get the length of the result:
 
 Print the result in one shot.  To obtain this into a variable, use str().
 
-    >>> print z
+    >>> print(z)
     <africa>
      <id_region>afr</id_region>
     </africa>
@@ -93,9 +93,9 @@ Print the result in one shot.  To obtain this into a variable, use str().
 Access by index:
 
     >>> z[0]
-    u'<africa><id_region>afr</id_region></africa>'
+    u'<africa>\n <id_region>afr</id_region>\n</africa>'
     >>> z[-1]
-    u'<samerica><id_region>sam</id_region></samerica>'
+    u'<samerica>\n <id_region>sam</id_region>\n</samerica>'
     >>> z[9]
     Traceback (most recent call last):
     ...
@@ -132,17 +132,32 @@ If we use lxml and parse to an Element, "in"  and "index" still work.
 Slice:
 
     >>> for item in z[2:4]:
-    ...     print item
-    <australia><id_region>aus</id_region></australia>
-    <europe><id_region>eur</id_region></europe>
+    ...     print(item)
+    <australia>
+     <id_region>aus</id_region>
+    </australia>
+    <BLANKLINE>
+    <europe>
+     <id_region>eur</id_region>
+    </europe>
     >>> for item in z[4:]:
-    ...     print item
-    <namerica><id_region>nam</id_region></namerica>
-    <samerica><id_region>sam</id_region></samerica>
+    ...     print(item)
+    <namerica>
+     <id_region>nam</id_region>
+    </namerica>
+    <BLANKLINE>
+    <samerica>
+     <id_region>sam</id_region>
+    </samerica>
     >>> for item in z[:2]:
-    ...     print item
-    <africa><id_region>afr</id_region></africa>
-    <asia><id_region>asi</id_region></asia>
+    ...     print(item)
+    <africa>
+     <id_region>afr</id_region>
+    </africa>
+    <BLANKLINE>
+    <asia>
+     <id_region>asi</id_region>
+    </asia>
     >>> z[-2:] ==  z[4:]
     True
 
@@ -151,7 +166,7 @@ server while iterating.  Provide an XQuery with a "where" clause if you want
 the server to do the "if" for you.
 
     >>> y = [item for item in z if 'samerica' in item]
-    >>> print y[0].lstrip()
+    >>> print(y[0].lstrip())
     <samerica>
      <id_region>sam</id_region>
     </samerica>
@@ -237,7 +252,7 @@ Initialize a SednaContainer with a cursor and an XPath expression:
     >>> from sednaobject import SednaContainer
     >>> curs = conn.cursor()
     >>> path = u"doc('testx_region')/regions"
-    >>> z = SednaContainer(curs,path)
+    >>> z = SednaContainer(curs,path, pretty_print=True)
 
 It is a value error if the expression returns more than one element.
 
@@ -263,7 +278,7 @@ Len provides the number of child elements.
 Obtain the element in one shot:
 
     >>> k = str(z)
-    >>> print k
+    >>> print(k)
     <regions>
      <africa>
       <id_region>afr</id_region>
@@ -289,13 +304,13 @@ Item access works as with SednaXQuery, except you get the items within the
 Element instead of the items of the list returned by the query:
 
     >>> z[0]
-    u'<africa><id_region>afr</id_region></africa>'
+    u'<africa>\n <id_region>afr</id_region>\n</africa>'
     >>> z[-1] in z
     True
     >>> z[0] in z
     True
     >>> z[3:4]
-    [u'<europe><id_region>eur</id_region></europe>']
+    [u'<europe>\n <id_region>eur</id_region>\n</europe>']
     >>> z.xindex(z[-2])
     5
 
@@ -318,10 +333,8 @@ entire item with an update.
     >>> idx = z.xindex(z[0])
     >>> p = z.path + '/' + '*[%s]' % idx
     >>> t = SednaContainer(z.cursor,p)
-    >>> print t
-    <africa>
-     <id_region>afr</id_region>
-    </africa>
+    >>> print(t)
+    <africa><id_region>afr</id_region></africa>
     >>> t.replace('bob')
     Traceback (most recent call last):
     ...
@@ -331,32 +344,47 @@ entire item with an update.
     >>> new_element = SubElement(item,'v',{'attr' : 'val'})
     >>> new_element.text = 'txt'
     >>> t.replace(item)
-    >>> print t
+    >>> print(t)
+    <africa><id_region>afr</id_region><v attr="val">txt</v></africa>
+
+Check that z also has this value. Remember that z was instanciated with
+pretty_print=True.
+
+    >>> print(z[0])
     <africa>
      <id_region>afr</id_region>
      <v attr="val">txt</v>
     </africa>
-    >>> print z[0]
-    <africa><id_region>afr</id_region><v attr="val">txt</v></africa>
 
 The list of subelements is mutable. Assign a new item at an index.  Subelements
-must be well-formed.
+must be well-formed.  Note that we list the enumeration here.  There is only one
+database iterator at a time for a cursor.
 
    >>> t = fromstring(z[1])
    >>> t.xpath('id_region')[0].text = 'asia'
    >>> z[1] = t
-   >>> print z[1]
-   <asia><id_region>asia</id_region></asia>
+   >>> print(z[1])
+   <asia>
+    <id_region>asia</id_region>
+   </asia>
    >>> for idx, item in list(enumerate(z)):
    ...     t = fromstring(item)
    ...     t.xpath('id_region')[0].tag = 'region_id'
    ...     z[idx] = t
-   >>> print z[2]
-   <australia><region_id>aus</region_id></australia>
+   >>> print(z[2])
+   <australia>
+    <region_id>aus</region_id>
+   </australia>
    >>> z[0] = 'fred'
    Traceback (most recent call last):
    ...
    ValueError: Item is not well-formed.
+
+At this point we reinstanciate z without pretty_print so that formatting
+does not get in the way of the examples.
+
+    >>> expr = u"doc('testx_region')/regions"
+    >>> z = SednaContainer(curs,expr)
 
 Append, insert, and remove work.  Note that "remove" removes only the first
 child whose normalized text representation matches the normalized text
@@ -384,7 +412,7 @@ representation of the item provided.
    >>> z[-1]
    u'<samerica><region_id>sam</region_id></samerica>'
    >>> s = z[3]
-   >>> print s
+   >>> print(s)
    <europe><region_id>eur</region_id></europe>
    >>> z.remove(s)
    >>> len(z)
@@ -547,7 +575,7 @@ Let's create an objectified element from scratch and replace the existing item.
     >>> t.contact.name.last = 'Hogan'
     >>> t.contact.name.first = 'Paul'
     >>> z[1] = t
-    >>> print tostring(z[1], pretty_print=True, encoding=unicode).strip()
+    >>> print(tostring(z[1], pretty_print=True, encoding=unicode).strip())
     <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
       <region_id py:pytype="str">aus</region_id>
       <city py:pytype="str">Canberra</city>
@@ -575,7 +603,7 @@ This class provides functionality similar to working with a record in SQL.
 We'll pull in the item from the last example in SednaContainer:
     >>> from sednaobject import SednaObjectifiedElement
     >>> q = u"doc('testx_region')/regions/"
-    >>> q += '*[city="Canberra" and region_id="aus"]'
+    >>> q += '*[city="Canberra" and fun_words[contains(.,"barbie")]]'
     >>> t = SednaObjectifiedElement(curs,q)
 
 Since this is just a wrapper around lxml.objectify, we do modifications as in
@@ -590,28 +618,30 @@ is to use dict notation.
     'Fine'
     >>> t.years
     3
-    >>> t.fun_words = ['one', 'two']
+    >>> t.fun_words = ['one<>', 'two{}']
     >>> t.contact['name']['first'] = 'Fred'
     >>> t.store = 'Wal-Mart'
+    >>> del t.store
     >>> t._cursor = 'Bob'
     Traceback (most recent call last):
     ...
     ValueError: Oops. _cursor, _path, and _element are used internally.
     >>> t['_cursor'] = 'Bob'
 
-Important: save modifications.  update() is a synonym for save().
+Important: save modifications.
 
     >>> t.save()
 
 Now, we verify that the save persisted the modifications.
 
-    >>> t = SednaContainer(curs,q)
-    >>> print t
+    >>> q = q.replace('barbie','two')
+    >>> t = SednaContainer(curs,q, pretty_print=True)
+    >>> print(t)
     <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
      <region_id py:pytype="str">aus</region_id>
      <city py:pytype="str">Canberra</city>
-     <fun_words py:pytype="str">one</fun_words>
-     <fun_words py:pytype="str">two</fun_words>
+     <fun_words py:pytype="str">one&lt;&gt;</fun_words>
+     <fun_words py:pytype="str">two{}</fun_words>
      <contact>
       <name>
        <last py:pytype="str">Hogan</last>
@@ -620,14 +650,13 @@ Now, we verify that the save persisted the modifications.
      </contact>
      <years py:pytype="int">3</years>
      <condition py:pytype="str">Fine</condition>
-     <store py:pytype="str">Wal-Mart</store>
      <_cursor py:pytype="str">Bob</_cursor>
     </australia>
 
 Cleanup.  We delete the previously-created document and close the connection.
 
     >>> for doc in ['testx_region']:
-    ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc)
+    ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc, pretty_print=True)
     >>> conn.commit()
     True
     >>> conn.close()
