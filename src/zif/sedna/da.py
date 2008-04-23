@@ -52,14 +52,15 @@ class SednaCursor(ZopeCursor):
     def _convertTypes(self,results):
         return results
 
-    def execute(self, operation, parameters=None):
+    def execute(self, operation, parameters=None, pretty_print=False):
         """Executes an operation, registering the underlying
         connection with the transaction system.  """
         #operation, parameters = self._prepareOperation(operation, parameters)
         self.connection.registerForTxn()
         if parameters is None:
-            return self.cursor.execute(operation)
-        return self.cursor.execute(operation,parameters)
+            return self.cursor.execute(operation, pretty_print=pretty_print)
+        return self.cursor.execute(operation,parameters,
+            pretty_print=pretty_print)
 
 
 class SednaConnection(ZopeConnection):
