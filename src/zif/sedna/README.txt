@@ -35,7 +35,7 @@ monitor what the Sedna server is doing.
 
 Ordinarily, this statement will be "from zif.sedna import protocol"
 
-    >>> import protocol
+    >>> from zif.sedna import protocol
 
 We open and close a connection:
 
@@ -95,18 +95,25 @@ connection.documents
 
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> db_docs = conn.documents
+
+    >>> import inspect
+    >>> localfile = inspect.getsourcefile(protocol.SednaProtocol)
+    >>> import os
+    >>> loc = os.path.realpath(localfile)
+    >>> path = os.path.split(loc)[0]
+    >>> filepath = os.path.join(path,'example','region.xml')
     >>> if not 'testx_region' in db_docs:
-    ...     z = conn.execute(u'LOAD "example/region.xml" "testx_region"')
+    ...     z = conn.execute(u'LOAD "%s" "testx_region"' % filepath)
     >>> conn.commit()
     True
 
 Equivalently, this could have been written:
 
-    conn.loadFile('example/region.xml','testx_region')
+    conn.loadFile('[%here%]/example/region.xml','testx_region')
 
 If we try to load this file again with the same name, we get an error.
 
-    >>> z = conn.loadFile('example/region.xml','testx_region')
+    >>> z = conn.loadFile(filepath,'testx_region')
     Traceback (most recent call last):
     ...
     DatabaseError: [163] SEDNA Message: ERROR SE2001

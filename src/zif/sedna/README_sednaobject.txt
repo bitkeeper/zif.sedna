@@ -31,11 +31,17 @@ We'll start with the usual test document in the test database:
     >>> port = 5050
     >>> host = 'localhost'
 
-    >>> import protocol
+    >>> from zif.sedna import protocol
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> db_docs = conn.documents
+    >>> import inspect
+    >>> localfile = inspect.getsourcefile(protocol.SednaProtocol)
+    >>> import os
+    >>> loc = os.path.realpath(localfile)
+    >>> path = os.path.split(loc)[0]
+    >>> filepath = os.path.join(path,'example','region.xml')
     >>> if not 'testx_region' in db_docs:
-    ...     z = conn.execute(u'LOAD "example/region.xml" "testx_region"')
+    ...     z = conn.loadFile(filepath, "testx_region")
     >>> conn.commit()
     True
 
@@ -53,7 +59,7 @@ Initialize a SednaXQuery with a cursor, and an XQuery or XPath expression.  You
 may provide a parser that will be used on each result item.  There is a bit more
 about using a parser later.
 
-    >>> from sednaobject import SednaXQuery
+    >>> from zif.sedna.sednaobject import SednaXQuery
     >>> curs = conn.cursor()
     >>> expr = u"doc('testx_region')/regions/*"
     >>> z = SednaXQuery(curs,expr,pretty_print=True)
@@ -249,7 +255,7 @@ in SQL.
 
 Initialize a SednaContainer with a cursor and an XPath expression:
 
-    >>> from sednaobject import SednaContainer
+    >>> from zif.sedna.sednaobject import SednaContainer
     >>> curs = conn.cursor()
     >>> path = u"doc('testx_region')/regions"
     >>> z = SednaContainer(curs,path, pretty_print=True)
@@ -460,9 +466,10 @@ del works.
    >>> len(z)
    4
 
-Slice modification is unsupported.
+Slice modification is unsupported. This is the python2.5 message.  The
+message differs for 2.4, so the statement is commented out.
 
-   >>> del z[:]
+   >>> #del z[:]
    Traceback (most recent call last):
    ...
    TypeError: unsupported operand type(s) for +: 'slice' and 'int'
@@ -601,7 +608,7 @@ Path must refer to a single element that already exists in the database.
 This class provides functionality similar to working with a record in SQL.
 
 We'll pull in the item from the last example in SednaContainer:
-    >>> from sednaobject import SednaObjectifiedElement
+    >>> from zif.sedna.sednaobject import SednaObjectifiedElement
     >>> q = u"doc('testx_region')/regions/"
     >>> q += '*[city="Canberra" and fun_words[contains(.,"barbie")]]'
     >>> t = SednaObjectifiedElement(curs,q)

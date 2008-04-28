@@ -41,7 +41,7 @@ setup(
     packages = find_packages('src'),
     package_dir = {'':'src'},
     namespace_packages = ['zif'],
-    install_requires = ['setuptools', 'lxml'],
+    install_requires = ['setuptools', 'lxml', 'zope.component'],
     include_package_data = True,
     zip_safe = False,
     )

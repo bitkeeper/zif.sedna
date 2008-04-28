@@ -606,48 +606,8 @@ class SednaProtocol(object):
         self.password = passwd
         self.database = db
         self.ermsgs = []
-        # handlers.  left side is a response token from Sedna.
-        # right side is the local callback for the body associated
-        # with that token.
-        self.handlers = {
-            SEDNA_SEND_SESSION_PARAMETERS : self._sendSessionParameters,
-            SEDNA_SEND_AUTH_PARAMETERS : self._sendAuthParameters,
-            SEDNA_AUTHENTICATION_OK : self._authenticationOK,
-            SEDNA_AUTHENTICATION_FAILED : self._authenticationFailed,
 
-            SEDNA_ERROR_RESPONSE : self._errorResponse,
 
-            SEDNA_QUERY_SUCCEEDED : self._querySucceeded,
-            SEDNA_QUERY_FAILED : self._queryFailed,
-            SEDNA_UPDATE_SUCCEEDED : self._updateSucceeded,
-            SEDNA_UPDATE_FAILED : self._updateFailed,
-
-            SEDNA_BULKLOAD_FILENAME : self._bulkloadFilename,
-            SEDNA_BULKLOAD_FROMSTREAM : self._bulkloadFromstream,
-            SEDNA_BULKLOAD_SUCCEEDED : self._bulkloadSucceeded,
-            SEDNA_BULKLOAD_FAILED : self._bulkloadFailed,
-
-            SEDNA_BEGIN_TRANSACTION_OK : self._beginTransactionOK,
-            SEDNA_BEGIN_TRANSACTION_FAILED : self._beginTransactionFailed,
-            SEDNA_COMMIT_TRANSACTION_OK : self._commitTransactionOK,
-            SEDNA_COMMIT_TRANSACTION_FAILED : self._commitTransactionFailed,
-            SEDNA_ROLLBACK_TRANSACTION_OK : self._rollbackTransactionOK,
-            SEDNA_ROLLBACK_TRANSACTION_FAILED : self._rollbackTransactionFailed,
-
-            SEDNA_DEBUG_INFO : self._debugInfo,
-            SEDNA_ITEM_PART : self._itemPart,
-            SEDNA_ITEM_END : self._itemEnd,
-            SEDNA_RESULT_END : self._resultEnd,
-
-            SEDNA_LAST_QUERY_TIME : self._lastQueryTime,
-
-            SEDNA_CLOSE_CONNECTION_OK : self._closeConnectionOK,
-            SEDNA_TRANSACTION_ROLLBACK_BEFORE_CLOSE : \
-                self._transactionRollbackBeforeClose,
-            SEDNA_SET_SESSION_OPTIONS_OK : self._setSessionOptionsOK,
-            SEDNA_RESET_SESSION_OPTIONS_OK : self._resetSessionOptionsOK
-
-        }
 
         self.openSocket(host,port)
 
@@ -767,7 +727,7 @@ class SednaProtocol(object):
                 logger.info("(S) %s %s" % (codes[token], normalizeMessage(z)))
             else:
                 logger.info("(S) %s" % codes[token])
-        return self.handlers[token](msg)
+        return self.handlers[token](self, msg)
 
     def _getInTransaction(self):
         return self._inTransaction
@@ -1018,3 +978,45 @@ class SednaProtocol(object):
     def _resetSessionOptionsOK(self,msg):
         pass
 
+# dispatch handlers.  left side is a response token from Sedna.
+# right side is the local callback for the body associated
+# with that token.
+
+    handlers = {
+            SEDNA_SEND_SESSION_PARAMETERS : _sendSessionParameters,
+            SEDNA_SEND_AUTH_PARAMETERS : _sendAuthParameters,
+            SEDNA_AUTHENTICATION_OK : _authenticationOK,
+            SEDNA_AUTHENTICATION_FAILED : _authenticationFailed,
+
+            SEDNA_ERROR_RESPONSE : _errorResponse,
+
+            SEDNA_QUERY_SUCCEEDED : _querySucceeded,
+            SEDNA_QUERY_FAILED : _queryFailed,
+            SEDNA_UPDATE_SUCCEEDED : _updateSucceeded,
+            SEDNA_UPDATE_FAILED : _updateFailed,
+
+            SEDNA_BULKLOAD_FILENAME : _bulkloadFilename,
+            SEDNA_BULKLOAD_FROMSTREAM : _bulkloadFromstream,
+            SEDNA_BULKLOAD_SUCCEEDED : _bulkloadSucceeded,
+            SEDNA_BULKLOAD_FAILED : _bulkloadFailed,
+
+            SEDNA_BEGIN_TRANSACTION_OK : _beginTransactionOK,
+            SEDNA_BEGIN_TRANSACTION_FAILED : _beginTransactionFailed,
+            SEDNA_COMMIT_TRANSACTION_OK : _commitTransactionOK,
+            SEDNA_COMMIT_TRANSACTION_FAILED : _commitTransactionFailed,
+            SEDNA_ROLLBACK_TRANSACTION_OK : _rollbackTransactionOK,
+            SEDNA_ROLLBACK_TRANSACTION_FAILED : _rollbackTransactionFailed,
+
+            SEDNA_DEBUG_INFO : _debugInfo,
+            SEDNA_ITEM_PART : _itemPart,
+            SEDNA_ITEM_END : _itemEnd,
+            SEDNA_RESULT_END : _resultEnd,
+
+            SEDNA_LAST_QUERY_TIME : _lastQueryTime,
+
+            SEDNA_CLOSE_CONNECTION_OK : _closeConnectionOK,
+            SEDNA_TRANSACTION_ROLLBACK_BEFORE_CLOSE : \
+                _transactionRollbackBeforeClose,
+            SEDNA_SET_SESSION_OPTIONS_OK : _setSessionOptionsOK,
+            SEDNA_RESET_SESSION_OPTIONS_OK : _resetSessionOptionsOK
+            }

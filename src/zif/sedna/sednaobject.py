@@ -1,5 +1,3 @@
-#sednaobject.py
-
 """
 sednaobject has a few classes: SednaXQuery, SednaContainer, and
 SednaObjectifiedElement, that abstract fetches and updates for a Sedna server.
@@ -31,9 +29,42 @@ from lxml.etree import _Element, tostring,fromstring, XMLSyntaxError
 from lxml.doctestcompare import norm_whitespace
 from dbapiexceptions import DatabaseError
 
+import zope.component
+import zope.interface
+
+def escapeCurlyBraces(s):
+    for char in ('{','}'):
+        if char in s:
+            s = s.replace(char,char*2)
+    return s
+
+class ISednaXMLString(zope.interface.Interface):
+    """a python unicode string of Sedna-escaped XML
+
+    XML is well-formed, and curly braces are escaped by doubling
+    """
+
+@zope.component.adapter(_Element)
+@zope.interface.implementer(ISednaXMLString)
+def elToSednaXML(obj):
+    return escapeCurlyBraces(tostring(obj,encoding=unicode))
+
+zope.component.provideAdapter(elToSednaXML)
+
+@zope.component.adapter(basestring)
+@zope.interface.implementer(ISednaXMLString)
+def strToSednaXML(obj):
+    try:
+        t = fromstring(obj)
+    except XMLSyntaxError:
+        raise ValueError("Item is not well-formed.")
+    return escapeCurlyBraces(unicode(obj))
+
+zope.component.provideAdapter(strToSednaXML)
+
 def checkobj(obj,wf=True):
     """
-    local converter.  everything sent to the server needs to be a string
+    local conversion.  everything sent to the server needs to be a string
 
     if wf is True, we also check for well-formed-ness...
 
@@ -41,21 +72,14 @@ def checkobj(obj,wf=True):
     doubling
 
     """
-    if isinstance(obj,_Element):
-        item = tostring(obj,encoding=unicode)
-    elif isinstance(obj,SednaContainer):
-        item = str(obj)
+
+    if not wf:
+        if isinstance(obj,basestring):
+            return obj
+        return ISednaXMLString(obj)
     else:
-        if wf:
-            try:
-                t = fromstring(obj)
-            except XMLSyntaxError:
-                raise ValueError("Item is not well-formed.")
-        item = obj
-    for char in ('{','}'):
-        if char in item:
-            item = item.replace(char,char*2)
-    return item
+        return ISednaXMLString(obj)
+
 
 class SednaXQuery(object):
     """class for read-only xpath queries.  Makes the query result sequence-like.
@@ -126,9 +150,10 @@ class SednaXQuery(object):
         """
         item = checkobj(obj, wf=False)
         normed = norm_whitespace(item)
-        #q = u'declare namespace se = "http://www.modis.ispras.ru/sedna";'
-        #q = u''
-        #q = u'declare option se:output "indent=no";'
+        #un-escape '{{' and '}} to do comparison...
+        for chrs in ('{{','}}'):
+            if chrs in normed:
+                normed = normed.replace(chrs,chrs[0])
         q = u' %s' % self.path
         s = self.cursor.execute(q, pretty_print=self.pretty_print)
         count = -1
@@ -494,6 +519,13 @@ class SednaContainer(SednaXQuery):
     def items(self):
         return self.attrib.items()
 
+@zope.component.adapter(SednaContainer)
+@zope.interface.implementer(ISednaXMLString)
+def containerToSednaXML(obj):
+    return escapeCurlyBraces(str(obj))
+
+zope.component.provideAdapter(containerToSednaXML)
+
 class SednaObjectifiedElement(object):
     """
        An abstraction of a single Element and its children, objectified with
@@ -561,17 +593,26 @@ class SednaObjectifiedElement(object):
         t = s.value
         return t
 
-    def getparent(self):
+    def getparent(self, parser=None):
         """
         return parent as a SednaContainer or None if at root
         """
         c = self.path + '/..'
-        t = SednaContainer(self.cursor,c,self.parser, check=False)
+        t = SednaContainer(self.cursor,c,parser=parser,check=False)
         if t.tag is None:
             return None
         return t
 
     parent = property(getparent)
+
+    #def setText(self, text):
+        ##self._element = objectify.deannotate(self._element)
+        #t = str(self)
+        #tag = self.tag
+        #q = '<t>%s</t>' % t
+        #e = objectify.fromstring(q)
+        #e[tag] = text
+        #self._element = e[tag]
 
     def save(self):
         self.replace(self._element)
@@ -582,7 +623,7 @@ class SednaObjectifiedElement(object):
             self._element.remove(k)
 
     def __str__(self):
-        return lxml.etree.tostring(self._element, encoding=unicode)
+        return tostring(self._element, encoding=unicode)
 
     def __setattr__(self,x,value):
         if x in ('_cursor','_path','_element'):
@@ -615,4 +656,9 @@ class SednaObjectifiedElement(object):
         """
         return getattr(self._element,x)
 
+@zope.component.adapter(SednaObjectifiedElement)
+@zope.interface.implementer(ISednaXMLString)
+def objectifiedToSednaXML(obj):
+    return ISednaXMLString(obj._element)
 
+zope.component.provideAdapter(objectifiedToSednaXML)
