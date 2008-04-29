@@ -52,7 +52,10 @@ import socket
 from struct import pack, unpack, calcsize
 import time
 
-from StringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 try:
     import threading as _threading
@@ -150,6 +153,12 @@ def escapeAndQuote(aDict):
             #value = str(value)
         newDict[item] = value
     return newDict
+
+def strlen(aList):
+    slen = 0
+    for item in aList:
+        slen += len(item)
+    return slen
 
 class BasicCursor(object):
     """a PEP-249-like cursor to a zif.sedna protocol object
@@ -313,7 +322,6 @@ class SednaProtocol(object):
     headerFormat = '!II'
     prefixLength = calcsize(headerFormat)
     maxDataLength = SEDNA_MAX_BODY_LENGTH - prefixLength
-    receiveBuffer = ''
     result = None
     error = None
     closed = True
@@ -353,7 +361,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
-        self.receiveBuffer = ''
+        self._resetBuffer()
         if isinstance(query,unicode):
             query = query.encode('utf-8')
         else:
@@ -382,7 +390,7 @@ class SednaProtocol(object):
         self.ermsgs = []
         self.currItem = []
         self.result = None
-        self.receiveBuffer = ''
+        self._resetBuffer()
         return self.cursorFactory(self)
 
     # transactions
@@ -402,7 +410,7 @@ class SednaProtocol(object):
         """
         commit transaction
         """
-        self.receiveBuffer = ''
+        self._resetBuffer()
         res = self._send_string(token=SEDNA_COMMIT_TRANSACTION)
         return res
 
@@ -410,7 +418,7 @@ class SednaProtocol(object):
         """
         rollback transaction
         """
-        self.receiveBuffer = ''
+        self._resetBuffer()
         res = self._send_string(token=SEDNA_ROLLBACK_TRANSACTION)
         return res
 
@@ -606,10 +614,8 @@ class SednaProtocol(object):
         self.password = passwd
         self.database = db
         self.ermsgs = []
-
-
-
-        self.openSocket(host,port)
+        self._resetBuffer()
+        self._openSocket(host,port)
 
         if trace:
             self.traceOn()
@@ -620,7 +626,7 @@ class SednaProtocol(object):
 
 # socket opening
 
-    def openSocket(self,host,port):
+    def _openSocket(self,host,port):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         except socket.error,e:
@@ -766,12 +772,11 @@ class SednaProtocol(object):
                 raise InterfaceError("Socket connection broken.")
             totalsent += sent
 
-
     def _getSocketData(self,length):
         """
         get 'length' bytes from the socket
         """
-        bufferLen = len(self.receiveBuffer)
+        bufferLen = strlen(self.receiveBuffer)
         while bufferLen < length:
             if bufferLen == 0:
                 # We don't have anything yet.
@@ -781,11 +786,14 @@ class SednaProtocol(object):
                 data = self.socket.recv(length-bufferLen)
             except socket.error,e:
                 raise InterfaceError('Error reading from socket: %s' % e)
-            self.receiveBuffer += data
+            self.receiveBuffer.append(data)
             bufferLen += len(data)
-        data, self.receiveBuffer = self.receiveBuffer[:length], \
-            self.receiveBuffer[length:]
+        all = ''.join(self.receiveBuffer)
+        data, self.receiveBuffer = all[:length], [all[length:]]
         return data
+
+    def _resetBuffer(self):
+        self.receiveBuffer = []
 
 # handlers
 
