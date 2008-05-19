@@ -25,9 +25,10 @@ is something your application and the Sedna server do.
 
 
 from lxml import objectify
-from lxml.etree import _Element, tostring,fromstring, XMLSyntaxError
+from lxml.etree import _Element, tostring,fromstring, XMLSyntaxError, parse
 from lxml.doctestcompare import norm_whitespace
 from dbapiexceptions import DatabaseError
+from cStringIO import StringIO
 
 import zope.component
 import zope.interface
@@ -560,7 +561,8 @@ class SednaObjectifiedElement(object):
         if check:
             self._checkElement()
         g = self._fromdb()
-        self._element = objectify.fromstring(g)
+        parser = objectify.makeparser(ns_clean=True)
+        self._element = objectify.fromstring(g,parser)
 
     def _checkElement(self):
         """
@@ -580,12 +582,11 @@ class SednaObjectifiedElement(object):
             raise ValueError(
         'Cannot init SednaObjectifiedElement with multiple elements.')
 
-    def replace(self,obj):
+    def replace(self,s):
         """ replace item at self._path with the object"""
-        item = checkobj(obj)
         q = u'update replace $i in %s ' % (self._path,)
-        q += ' with %s' % (item,)
-        self._cursor.execute(q)
+        q += ' with %s' % (s,)
+        self._cursor.execute(q, pretty_print=True)
 
     def _fromdb(self):
         q = u'%s' % self._path
@@ -615,7 +616,7 @@ class SednaObjectifiedElement(object):
         #self._element = e[tag]
 
     def save(self):
-        self.replace(self._element)
+        self.replace(ISednaXMLString(self))
 
     def __delattr__(self,key):
         items = list(self._element[key])
@@ -656,9 +657,18 @@ class SednaObjectifiedElement(object):
         """
         return getattr(self._element,x)
 
+rp = 'xmlns:py="http://codespeak.net/lxml/objectify/pytype" '
+
 @zope.component.adapter(SednaObjectifiedElement)
 @zope.interface.implementer(ISednaXMLString)
 def objectifiedToSednaXML(obj):
-    return ISednaXMLString(obj._element)
+    #put in xsi definitions
+    objectify.xsiannotate(obj._element)
+    #remove pytype annotations
+    objectify.deannotate(obj._element,xsi=False)
+    s = tostring(obj._element,encoding=unicode)
+    #remove pytype namespace
+    s = s.replace(rp,'')
+    return escapeCurlyBraces(s)
 
 zope.component.provideAdapter(objectifiedToSednaXML)

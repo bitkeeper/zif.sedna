@@ -644,21 +644,37 @@ Now, we verify that the save persisted the modifications.
     >>> q = q.replace('barbie','two')
     >>> t = SednaContainer(curs,q, pretty_print=True)
     >>> print(t)
-    <australia xmlns:py="http://codespeak.net/lxml/objectify/pytype" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" py:pytype="TREE">
-     <region_id py:pytype="str">aus</region_id>
-     <city py:pytype="str">Canberra</city>
-     <fun_words py:pytype="str">one&lt;&gt;</fun_words>
-     <fun_words py:pytype="str">two{}</fun_words>
+    <australia xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+     <region_id xsi:type="xsd:string">aus</region_id>
+     <city xsi:type="xsd:string">Canberra</city>
+     <fun_words xsi:type="xsd:string">one&lt;&gt;</fun_words>
+     <fun_words xsi:type="xsd:string">two{}</fun_words>
      <contact>
       <name>
-       <last py:pytype="str">Hogan</last>
-       <first py:pytype="str">Fred</first>
+       <last xsi:type="xsd:string">Hogan</last>
+       <first xsi:type="xsd:string">Fred</first>
       </name>
      </contact>
-     <years py:pytype="int">3</years>
-     <condition py:pytype="str">Fine</condition>
-     <_cursor py:pytype="str">Bob</_cursor>
+     <years xsi:type="xsd:int">3</years>
+     <condition xsi:type="xsd:string">Fine</condition>
+     <_cursor xsi:type="xsd:string">Bob</_cursor>
     </australia>
+
+Check to assure that it round-trips OK.
+
+    >>> t = SednaObjectifiedElement(curs,q)
+    >>> t.tag
+    'australia'
+    >>> t.city
+    'Canberra'
+    >>> t.fun_words[:]
+    ['one<>', 'two{}']
+    >>> t.years
+    3
+    >>> t.contact.name.last
+    'Hogan'
+    >>> t['_cursor']
+    'Bob'
 
 Cleanup.  We delete the previously-created document and close the connection.
 
