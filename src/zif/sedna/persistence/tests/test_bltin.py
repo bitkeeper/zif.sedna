@@ -79,7 +79,7 @@ foo.tup = ("tuple", 123, 444.333)
 #printfoo(foo)
 
 x1 = xml_pickle.dumpsp(foo)
-#print x1
+print x1
 
 #print "---POST-PICKLE---"
 bar = xml_pickle.loads(x1)

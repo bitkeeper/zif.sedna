@@ -45,6 +45,8 @@ PMAP = {'z':PKL_NAMESPACE}
 NAMESPACES = {'z':PKL_NAMESPACE,None:OBJ_NAMESPACE}
 OMAP={'o':OBJ_NAMESPACE}
 
+base_element_name = 'pickle'
+
 #_binary_char = re.compile("[^\n\t\r -\x7e]").search
 
 from zope.interface import Interface
@@ -73,8 +75,8 @@ def strConvert(s):
     return s, b64
 
 #localModules = ('__builtin__','__main__')
-local_modules = ('__builtin__',)
-local_names = set(['dict','list','str','unicode','tuple',
+handled_modules = ('__builtin__',)
+base_classes = set(['dict','list','str','unicode','tuple',
     'int','long','float','Decimal','complex','NoneType','bool'])
 handled_types=(basestring,list,dict,tuple,float,complex,int)
 
@@ -88,7 +90,7 @@ def refgen():
                     yield '%s%s%s%s' % (a,b,c,d)
 
 class XMLPickler(object):
-
+    dispatch = {}
     def __init__(self,f=None):
         if f:
             self.file = f
@@ -107,27 +109,33 @@ class XMLPickler(object):
     def shouldMemoize(self,obj,tag):
         pass
 
-    def asRef(self,obj_id, name=None):
+    def asRef(self,obj_id, name=None,parent=None):
         if not name:
-            name = Z+'pyobj'
+            name = Z+base_element_name
         ref_id,source = self.memo[obj_id]
         source.set(Z+'ref',str(ref_id))
-        elt = Element(name,{Z+'refto':str(ref_id)},nsmap=PMAP)
+        if parent is not None:
+            elt = SubElement(parent,name,{Z+'refto':str(ref_id)},nsmap=PMAP)
+        else:
+            elt = Element(name,{Z+'refto':str(ref_id)},nsmap=PMAP)
         return elt
 
-    def asClassElement(self,obj,name=None):
+    def asClassElement(self,obj,name=None,parent=None):
         if not name:
-            name = Z+'pyobj'
+            name = Z+base_element_name
         module = obj.__module__
         classname = obj.__name__
-        elt = Element(name,{Z+'kls':classname},nsmap=PMAP)
-        if not module in local_modules:
+        if parent is not None:
+            elt = SubElement(parent,name,{Z+'kls':classname},nsmap=PMAP)
+        else:
+            elt = Element(name,{Z+'kls':classname},nsmap=PMAP)
+        if not module in handled_modules:
             elt.set(Z+'module',module)
         return elt
 
-    def asFunctionElement(self,obj,name=None):
+    def asFunctionElement(self,obj,name=None,parent=None):
         if not name:
-            name = Z+'pyobj'
+            name = Z+base_element_name
         fname = obj.__name__
         # borrowed from gnosis utils
         for module_name,module in sys.modules.items():
@@ -138,25 +146,28 @@ class XMLPickler(object):
         else:
             module_name = '__main__'
         module = module_name
-        elt = Element(name,{Z+'fn':fname},nsmap=PMAP)
-        if not module in local_modules:
+        if parent is not None:
+            elt = SubElement(parent,name,{Z+'fn':fname},nsmap=PMAP)
+        else:
+            elt = Element(name,{Z+'fn':fname},nsmap=PMAP)
+        if not module in handled_modules:
             elt.set(Z+'module',module)
         return elt
 
-    def asElement(self,obj,name=None):
+    def asElement(self,obj,name=None,parent=None):
         """return an element representing obj.
 
         if name is provided, use name for the tag, else 'pickle' is used.
         """
         #if not isinstance(obj,InstanceType):
         if isinstance(obj,(ClassType)):
-            return self.asClassElement(obj,name)
+            return self.asClassElement(obj,name,parent=parent)
         elif isinstance(obj,(FunctionType, BuiltinFunctionType)):
-            return self.asFunctionElement(obj,name)
-        elif isinstance(obj,(TypeType)) and not obj.__name__ in local_names:
-            return self.asClassElement(obj,name)
+            return self.asFunctionElement(obj,name,parent=parent)
+        elif isinstance(obj,(TypeType)) and not obj.__name__ in base_classes:
+            return self.asClassElement(obj,name,parent=parent)
         if name is None:
-            name = Z + 'pickle'
+            name = Z + base_element_name
             nmap = NAMESPACES
         else:
             name = name
@@ -174,11 +185,19 @@ class XMLPickler(object):
         module = klass.__module__
 
         attrs = {}
-        if not module in local_modules:
+        if not module in handled_modules:
             attrs[Z+'module']=module
         attrs[Z+'cls']=klass_name
 
-        elt = Element(name,attrs,nsmap=nmap)
+        if parent is not None:
+            elt = SubElement(parent,name,attrs,nsmap=nmap)
+        else:
+            elt = Element(name,attrs,nsmap=nmap)
+
+        if klass_name in base_classes and module in handled_modules:
+            self.dispatch[klass_name](self,obj,elt)
+            return elt
+
         #if IPersistent.providedBy(obj):
             ## we handle Persistent items differently, I think, though
             ## this maybe will be handled in __getstate__/__setstate__
@@ -199,8 +218,7 @@ class XMLPickler(object):
         if hasattr(obj,'__getstate__'):
             state = obj.__getstate__()
             if hasattr(obj,'__setstate__'):
-                outtag = self.asElement(state,Z+'_state')
-                elt.append(outtag)
+                outtag = self.asElement(state,Z+'_state',parent=elt)
                 self.memoize(state,outtag)
             else:
                 d.update(state)
@@ -211,12 +229,25 @@ class XMLPickler(object):
             except AttributeError:
                 pass
 
-        # this may be a bad idea, but we'll set the contents of slots into
-        # dict just to expose them for search.
-        # actual pickle state for anything with __slots__ should be in
-        # __getstate/__setstate__
-        objslots=None
-        if not d:
+        if not klass_name in base_classes:
+            try:
+                newArgs = obj.__getnewargs__()
+            except AttributeError:
+                newArgs = None
+            if newArgs:
+                outtag = self.asElement(newArgs,Z+'_newargs',parent=elt)
+            else:
+                try:
+                    newArgs = obj.__getinitargs__()
+                except AttributeError:
+                    newArgs = None
+                if newArgs:
+                    outtag = self.asElement(newArgs,Z+'_newargs',parent=elt)
+            # this may be a bad idea, but we'll set the contents of slots into
+            # dict just to expose them for search.
+            # actual pickle state for anything with __slots__ should be in
+            # __getstate/__setstate__
+            objslots=None
             try:
                 objslots=_slotnames(klass)
                 slotd = {}
@@ -231,22 +262,6 @@ class XMLPickler(object):
             except AttributeError:
                 pass
 
-        if not klass_name in local_names:
-            try:
-                newArgs = obj.__getnewargs__()
-            except AttributeError:
-                newArgs = None
-            if newArgs:
-                outtag = self.asElement(newArgs,Z+'_newargs')
-                elt.append(outtag)
-            else:
-                try:
-                    newArgs = obj.__getinitargs__()
-                except AttributeError:
-                    newArgs = None
-                if newArgs:
-                    outtag = self.asElement(newArgs,Z+'_newargs')
-                    elt.append(outtag)
             if hasattr(obj,'__reduce__') and not (objslots or state):
                 if not isinstance(obj,handled_types):
                     self.getReduction(obj,elt)
@@ -258,7 +273,7 @@ class XMLPickler(object):
                 if not issubclass(klass,handled_types):
                     return elt
 
-        if d or state or isinstance(obj,(list,dict)):
+        if d or state:
             # memoize instances, lists, and dicts.  tuples can cause trouble
             # inside reductions
             self.memoize(obj,elt)
@@ -266,68 +281,90 @@ class XMLPickler(object):
         for key, value in d.items():
             vid = id(value)
             if vid in self.memo:
-                elt.append(self.asRef(vid,name=key))
+                self.asRef(vid,name=key,parent=elt)
             else:
-                outputtag = self.asElement(value,key)
-                elt.append(outputtag)
-                if hasattr(value,'__dict__') or isinstance(value,
-                        (list,dict)):
+                outputtag = self.asElement(value,key,parent=elt)
+                if hasattr(value,'__dict__'):
                     self.memoize(value,outputtag)
 
         if isinstance(obj,basestring):
-            obj,b64 = strConvert(obj)
-            if b64:
-                elt.set(Z+'enc','base64')
-            elt.text = obj
+            self.handle_basestring(obj,elt)
 
         elif hasattr(obj,'__getitem__'):
-            if hasattr(obj,'keys') and hasattr(obj,'values'):
-                self.getDictItems(obj,elt)
-            else:
-                self.getSequenceItems(obj,elt)
+            self.handle_sequence(obj,elt)
 
         elif isinstance(obj,bool):
-            elt.text = str(obj).lower()
+            self.handle_bool(obj,elt)
 
         elif isinstance(obj,NoneType):
-            elt.text = 'None'
+            self.handle_none(obj,elt)
 
         elif isinstance(obj,(int,long,float, Decimal)):
-            elt.text = str(obj)
+            self.handle_number(obj,elt)
 
         elif isinstance(obj,complex):
-            elt.append(self.asElement(obj.real,Z+'real'))
-            elt.append(self.asElement(obj.imag,Z+'imag'))
+            self.handle_complex(obj,elt)
 
         obj = None
-
         return elt
 
+    def handle_basestring(self,obj,elt):
+        txt,b64 = strConvert(obj)
+        if b64:
+            elt.set(Z+'enc','base64')
+        elt.text = txt
+    dispatch['str'] = handle_basestring
+    dispatch['unicode'] = handle_basestring
+
+    def handle_sequence(self,obj,elt):
+        if hasattr(obj,'keys') and hasattr(obj,'values'):
+            self.getDictItems(obj,elt)
+        else:
+            self.getSequenceItems(obj,elt)
+
+    def handle_bool(self,obj,elt):
+        elt.text = str(obj).lower()
+    dispatch['bool'] = handle_bool
+
+    def handle_none(self,obj,elt):
+        elt.text = str(obj).lower()
+    dispatch['NoneType'] = handle_none
+
+    def handle_number(self,obj,elt):
+        elt.text = str(obj)
+    dispatch['int'] = handle_number
+    dispatch['long'] = handle_number
+    dispatch['Decimal'] = handle_number
+    dispatch['float'] = handle_number
+
+    def handle_complex(self,obj,elt):
+        self.asElement(obj.real,Z+'real',parent=elt)
+        self.asElement(obj.imag,Z+'imag',parent=elt)
+    dispatch['complex'] = handle_complex
+
     def getSequenceItems(self,obj,elt):
+        if isinstance(obj,list):
+            # memoize lists, not tuples
+            self.memoize(obj,elt)
         for listitem in obj:
             vid = id(listitem)
             if vid in self.memo:
-                elt.append(self.asRef(vid,Z+'item'))
+                self.asRef(vid,Z+'item',parent=elt)
             else:
-                outputtag = self.asElement(listitem,Z+'item')
-                elt.append(outputtag)
-                if isinstance(listitem,(list,dict)) or hasattr(listitem,
-                        '__dict__'):
-                    self.memoize(listitem,outputtag)
+                self.asElement(listitem,Z+'item',parent=elt)
+    dispatch['list'] = getSequenceItems
+    dispatch['tuple'] = getSequenceItems
 
     def getDictItems(self,obj,elt):
+        self.memoize(obj,elt)
         for akey,avalue in obj.items():
-            key = self.asElement(akey,Z+'key')
+            key = self.asElement(akey,Z+'key',parent=elt)
             vid = id(avalue)
             if vid in self.memo:
-                key.append(self.asRef(vid,Z+'val'))
+                self.asRef(vid,Z+'val',parent=key)
             else:
-                outputtag = self.asElement(avalue,Z+'val')
-                if isinstance(avalue,(list,dict)) or hasattr(avalue,
-                        '__dict__'):
-                    self.memoize(avalue,outputtag)
-                key.append(outputtag)
-            elt.append(key)
+                self.asElement(avalue,Z+'val',parent=key)
+    dispatch['dict'] = getDictItems
 
     def getReduction(self,obj,elt):
         try:
@@ -340,9 +377,8 @@ class XMLPickler(object):
                 raise PicklingError('%s item cannot be pickled' % type(obj))
         if isinstance(reduction,basestring):
             reduction = globals().get(reduction)
-        outtag = self.asElement(reduction,Z+'_reduction')
+        outtag = self.asElement(reduction,Z+'_reduction',parent=elt)
         obj = None
-        elt.append(outtag)
 
     def dumps(self,obj,compress=False,pretty_print=False,xml_declaration=False,
             encoding='ASCII'):

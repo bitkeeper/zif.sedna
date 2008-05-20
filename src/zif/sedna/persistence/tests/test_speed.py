@@ -117,6 +117,16 @@ def doit(deepcopy=1):
     print "TIME = %f"%(time()-t1)
     del o
 
+theobject = mk_foo(6)
+
+def pickling():
+    x = xml_pickle.dumps(theobject)
+
+thepickle = xml_pickle.dumps(theobject)
+def unpickling():
+    obj = xml_pickle.loads(thepickle)
+
+
 def pyxml_marshal():
     try:
         from xml.marshal import generic
@@ -152,5 +162,15 @@ Pickle len =  3794
 xml.marshal load
 TIME = 1.230000
 """
+import cProfile
+cProfile.run('pickling()','profile_pickling')
 
+import pstats
+p = pstats.Stats('profile_pickling')
+p.sort_stats('cumulative').print_stats(15)
+
+#cProfile.run('unpickling()','profile_unpickling')
+
+#p = pstats.Stats('profile_unpickling')
+#p.sort_stats('cumulative').print_stats(10)
 
