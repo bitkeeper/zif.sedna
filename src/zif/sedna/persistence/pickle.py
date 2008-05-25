@@ -1,7 +1,6 @@
 import sys
 
 from decimal import Decimal
-
 from copy_reg import _slotnames, dispatch_table
 from types import ClassType, FunctionType, BuiltinFunctionType, TypeType, \
     NoneType, InstanceType
@@ -10,10 +9,14 @@ from copy import copy,deepcopy
 
 import gzip
 from lxml.etree import Element, SubElement, tostring, fromstring, parse, \
-    XMLSyntaxError, XMLParser
+    XMLSyntaxError, XMLParser, XPath
 from cStringIO import StringIO
 from persistent.interfaces import IPersistent
 from zope.interface import implements, providedBy
+
+import cPickle
+import zlib
+
 
 class PickleError(Exception):
     """A common base class for the other pickling exceptions."""
@@ -39,8 +42,8 @@ class UnpicklingError(PickleError):
 
 PKL_NAMESPACE="http://namespaces.zope.org/pickle"
 OBJ_NAMESPACE="http://namespaces.zope.org/pyobj"
-Z = '{%s}' % PKL_NAMESPACE
-OBJ= '{%s}' % OBJ_NAMESPACE
+P_PREFIX = '{%s}' % PKL_NAMESPACE
+OBJ_PREFIX= '{%s}' % OBJ_NAMESPACE
 PMAP = {'z':PKL_NAMESPACE}
 NAMESPACES = {'z':PKL_NAMESPACE,None:OBJ_NAMESPACE}
 OMAP={'o':OBJ_NAMESPACE}
@@ -90,6 +93,11 @@ def refgen():
                     yield '%s%s%s%s' % (a,b,c,d)
 
 class XMLPickler(object):
+    """
+    Pickle python objects in a particular XML format.
+    
+    This format tries to 
+    """
     dispatch = {}
     def __init__(self,f=None):
         if f:
@@ -106,36 +114,34 @@ class XMLPickler(object):
         objid = id(obj)
         self.memo[objid] = (ref,tag)
 
-    def shouldMemoize(self,obj,tag):
-        pass
-
     def asRef(self,obj_id, name=None,parent=None):
         if not name:
-            name = Z+base_element_name
+            name = P_PREFIX+base_element_name
         ref_id,source = self.memo[obj_id]
-        source.set(Z+'ref',str(ref_id))
+        source.set(P_PREFIX+'ref',str(ref_id))
         if parent is not None:
-            elt = SubElement(parent,name,{Z+'refto':str(ref_id)},nsmap=PMAP)
+            elt = SubElement(parent,name,{P_PREFIX+'refto':str(ref_id)},
+                nsmap=PMAP)
         else:
-            elt = Element(name,{Z+'refto':str(ref_id)},nsmap=PMAP)
+            elt = Element(name,{P_PREFIX+'refto':str(ref_id)},nsmap=PMAP)
         return elt
 
     def asClassElement(self,obj,name=None,parent=None):
         if not name:
-            name = Z+base_element_name
+            name = P_PREFIX+base_element_name
         module = obj.__module__
         classname = obj.__name__
         if parent is not None:
-            elt = SubElement(parent,name,{Z+'kls':classname},nsmap=PMAP)
+            elt = SubElement(parent,name,{P_PREFIX+'kls':classname},nsmap=PMAP)
         else:
-            elt = Element(name,{Z+'kls':classname},nsmap=PMAP)
+            elt = Element(name,{P_PREFIX+'kls':classname},nsmap=PMAP)
         if not module in handled_modules:
-            elt.set(Z+'module',module)
+            elt.set(P_PREFIX+'module',module)
         return elt
 
     def asFunctionElement(self,obj,name=None,parent=None):
         if not name:
-            name = Z+base_element_name
+            name = P_PREFIX+base_element_name
         fname = obj.__name__
         # borrowed from gnosis utils
         for module_name,module in sys.modules.items():
@@ -147,11 +153,11 @@ class XMLPickler(object):
             module_name = '__main__'
         module = module_name
         if parent is not None:
-            elt = SubElement(parent,name,{Z+'fn':fname},nsmap=PMAP)
+            elt = SubElement(parent,name,{P_PREFIX+'fn':fname},nsmap=PMAP)
         else:
-            elt = Element(name,{Z+'fn':fname},nsmap=PMAP)
+            elt = Element(name,{P_PREFIX+'fn':fname},nsmap=PMAP)
         if not module in handled_modules:
-            elt.set(Z+'module',module)
+            elt.set(P_PREFIX+'module',module)
         return elt
 
     def asElement(self,obj,name=None,parent=None):
@@ -159,15 +165,16 @@ class XMLPickler(object):
 
         if name is provided, use name for the tag, else 'pickle' is used.
         """
-        #if not isinstance(obj,InstanceType):
-        if isinstance(obj,(ClassType)):
-            return self.asClassElement(obj,name,parent=parent)
-        elif isinstance(obj,(FunctionType, BuiltinFunctionType)):
-            return self.asFunctionElement(obj,name,parent=parent)
-        elif isinstance(obj,(TypeType)) and not obj.__name__ in base_classes:
-            return self.asClassElement(obj,name,parent=parent)
+        
+        if not isinstance(obj,InstanceType):
+            if isinstance(obj,(ClassType)):
+                return self.asClassElement(obj,name,parent=parent)
+            elif isinstance(obj,(FunctionType, BuiltinFunctionType)):
+                return self.asFunctionElement(obj,name,parent=parent)
+            elif isinstance(obj,(TypeType))and not obj.__name__ in base_classes:
+                return self.asClassElement(obj,name,parent=parent)
         if name is None:
-            name = Z + base_element_name
+            name = P_PREFIX + base_element_name
             nmap = NAMESPACES
         else:
             name = name
@@ -184,109 +191,111 @@ class XMLPickler(object):
         klass_name = klass.__name__
         module = klass.__module__
 
+        # make an XML attributes dict with class (and module)
         attrs = {}
         if not module in handled_modules:
-            attrs[Z+'module']=module
-        attrs[Z+'cls']=klass_name
+            attrs[P_PREFIX+'module']=module
+        attrs[P_PREFIX+'cls']=klass_name
 
+        # create the element
         if parent is not None:
             elt = SubElement(parent,name,attrs,nsmap=nmap)
         else:
             elt = Element(name,attrs,nsmap=nmap)
 
+        # handle and return element for basic python objects
         if klass_name in base_classes and module in handled_modules:
             self.dispatch[klass_name](self,obj,elt)
             return elt
 
-        #if IPersistent.providedBy(obj):
-            ## we handle Persistent items differently, I think, though
-            ## this maybe will be handled in __getstate__/__setstate__
-            #oid = obj._p_oid
-            #if oid:
-                #newId, b64 = strConvert(oid)
-                #elt.set(Z+'oid',newId)
-                #if b64:
-                    #elt.set(Z+'oid_b64','true')
-                #if not obj._p_changed:
-                    #return elt
+        # handle and return element for extension objects that use __reduce__
         if needReduce:
             self.getReduction(obj,elt)
             return elt
+
+        # Handle instances.  Set-up dict and state.
+
+        # d is what we will use for obj.__dict__
         d={}
+        # state is whatever we get from __getstate__
         state=None
+        # at this point obj is an always an instance, so memoize
+        self.memoize(obj,elt)
+        
+        # we're pickling to XML for visiblility, so __dict__ needs to go in,
+        # even if __getstate___ wants something different
+        if hasattr(obj,'__dict__'):
+            objdict = obj.__dict__
+            d.update(objdict)
 
         if hasattr(obj,'__getstate__'):
             state = obj.__getstate__()
             if hasattr(obj,'__setstate__'):
-                outtag = self.asElement(state,Z+'_state',parent=elt)
-                self.memoize(state,outtag)
+                # object has a __setstate__ method, which probably provides
+                # a dense representation that will be useless in XML.  let's 
+                # just pickle that.  It will show up in the XML as a base64
+                # string.
+                pstate = cPickle.dumps(state,-1)
+                outtag = self.asElement(pstate,P_PREFIX+'_state',parent=elt)
             else:
+                # there is no __setstate__, so put state in __dict__
                 d.update(state)
-        if not (d or state):
-            try:
-                objdict = obj.__dict__
-                d.update(objdict)
-            except AttributeError:
-                pass
+                # in case state wants something weird, we need to make sure
+                # the dict does not have anything not in state
+                for key in d.keys():
+                    if not key in state.keys():
+                        del d[key]
 
-        if not klass_name in base_classes:
-            try:
-                newArgs = obj.__getnewargs__()
-            except AttributeError:
-                newArgs = None
-            if newArgs:
-                outtag = self.asElement(newArgs,Z+'_newargs',parent=elt)
-            else:
+        # __getnewargs__ and __getinitargs__
+        new_args = None
+        if hasattr(obj,'__getnewargs__'):
+            new_args = obj.__getnewargs__()
+        if not new_args and hasattr(obj,'__getinitargs__'):
+            new_args = obj.__getinitargs__()
+        if new_args:
+            outtag = self.asElement(new_args,P_PREFIX+'_newargs', parent=elt)
+
+        # set the contents of slots into
+        # dict just to expose them for search.
+        # usually, anything with __slots__ should be use
+        # __getstate__ and __setstate__
+        object_slots=_slotnames(klass)
+        if object_slots:
+            slotd = {}
+            for key in object_slots:
                 try:
-                    newArgs = obj.__getinitargs__()
+                    value = getattr(obj,key)
+                    slotd[key] = value
                 except AttributeError:
-                    newArgs = None
-                if newArgs:
-                    outtag = self.asElement(newArgs,Z+'_newargs',parent=elt)
-            # this may be a bad idea, but we'll set the contents of slots into
-            # dict just to expose them for search.
-            # actual pickle state for anything with __slots__ should be in
-            # __getstate/__setstate__
-            objslots=None
-            try:
-                objslots=_slotnames(klass)
-                slotd = {}
-                for key in objslots:
-                    try:
-                        value = getattr(obj,key)
-                        slotd[key] = value
-                    except AttributeError:
-                        pass
-                if objslots:
-                    d.update(slotd)
-            except AttributeError:
-                pass
+                    pass
+            if slotd:
+                d.update(slotd)
 
-            if hasattr(obj,'__reduce__') and not (objslots or state):
-                if not isinstance(obj,handled_types):
-                    self.getReduction(obj,elt)
-                # throw some useful text into date/datetime objects
-                if klass_name in ('date','datetime'):
-                    if module == 'datetime':
-                        t = obj.isoformat()
-                        elt.text = t
-                if not issubclass(klass,handled_types):
-                    return elt
-
-        if d or state:
-            # memoize instances, lists, and dicts.  tuples can cause trouble
-            # inside reductions
-            self.memoize(obj,elt)
-
+        # not sure if this will handle every possible __reduce__ output
+        # reduce is mostly for extension classes
+        # prefer object_slots or state to reduce if available
+        if hasattr(obj,'__reduce__') and not (object_slots or state):
+            if not isinstance(obj,handled_types):
+                self.getReduction(obj,elt)
+            # expose some useful text for date/datetime objects
+            if klass_name in ('date','datetime'):
+                if module == 'datetime':
+                    t = obj.isoformat()
+                    elt.text = t
+            
+        # apply the __dict__ information.
         for key, value in d.items():
             vid = id(value)
             if vid in self.memo:
                 self.asRef(vid,name=key,parent=elt)
             else:
                 outputtag = self.asElement(value,key,parent=elt)
-                if hasattr(value,'__dict__'):
-                    self.memoize(value,outputtag)
 
+        # do no more unless we have an obj subclassing base python objects         
+        if not issubclass(klass,handled_types):
+                return elt
+        
+        # these are for the case where obj subclasses base python objects
         if isinstance(obj,basestring):
             self.handle_basestring(obj,elt)
 
@@ -311,7 +320,7 @@ class XMLPickler(object):
     def handle_basestring(self,obj,elt):
         txt,b64 = strConvert(obj)
         if b64:
-            elt.set(Z+'enc','base64')
+            elt.set(P_PREFIX+'enc','base64')
         elt.text = txt
     dispatch['str'] = handle_basestring
     dispatch['unicode'] = handle_basestring
@@ -338,32 +347,32 @@ class XMLPickler(object):
     dispatch['float'] = handle_number
 
     def handle_complex(self,obj,elt):
-        self.asElement(obj.real,Z+'real',parent=elt)
-        self.asElement(obj.imag,Z+'imag',parent=elt)
+        self.asElement(obj.real,P_PREFIX+'real',parent=elt)
+        self.asElement(obj.imag,P_PREFIX+'imag',parent=elt)
     dispatch['complex'] = handle_complex
 
     def getSequenceItems(self,obj,elt):
         if isinstance(obj,list):
-            # memoize lists, not tuples
+            # only memoize lists, not tuples
             self.memoize(obj,elt)
         for listitem in obj:
             vid = id(listitem)
             if vid in self.memo:
-                self.asRef(vid,Z+'item',parent=elt)
+                self.asRef(vid,P_PREFIX+'item',parent=elt)
             else:
-                self.asElement(listitem,Z+'item',parent=elt)
+                self.asElement(listitem,P_PREFIX+'item',parent=elt)
     dispatch['list'] = getSequenceItems
     dispatch['tuple'] = getSequenceItems
 
     def getDictItems(self,obj,elt):
         self.memoize(obj,elt)
         for akey,avalue in obj.items():
-            key = self.asElement(akey,Z+'key',parent=elt)
+            key = self.asElement(akey,P_PREFIX+'key',parent=elt)
             vid = id(avalue)
             if vid in self.memo:
-                self.asRef(vid,Z+'val',parent=key)
+                self.asRef(vid,P_PREFIX+'val',parent=key)
             else:
-                self.asElement(avalue,Z+'val',parent=key)
+                self.asElement(avalue,P_PREFIX+'val',parent=key)
     dispatch['dict'] = getDictItems
 
     def getReduction(self,obj,elt):
@@ -377,7 +386,7 @@ class XMLPickler(object):
                 raise PicklingError('%s item cannot be pickled' % type(obj))
         if isinstance(reduction,basestring):
             reduction = globals().get(reduction)
-        outtag = self.asElement(reduction,Z+'_reduction',parent=elt)
+        outtag = self.asElement(reduction,P_PREFIX+'_reduction',parent=elt)
         obj = None
 
     def dumps(self,obj,compress=False,pretty_print=False,xml_declaration=False,
@@ -423,6 +432,8 @@ builtins = set(['NoneType','bool', 'complex', 'dict', 'float','frozenset',
 
 class Unpickler(object):
 
+
+    dispatch = {}
     def __init__(self, s):
         """init with a string. or file-like
         """
@@ -453,7 +464,7 @@ class Unpickler(object):
         """
         Read a pickled object representation from self.data.
 
-        Return the reconstituted object hierarchy.
+        Return the reconstituted object hi_erarchy.
         """
         out = self.reconstitute(self.data)
         self.refs.clear()
@@ -463,14 +474,13 @@ class Unpickler(object):
         """
         reconstitute objects recursively descending from this XML tag
         """
-        refid = item.get(Z+'refto')
-        if refid:
+        refid = item.get(P_PREFIX+'refto',None)
+        if refid is not None:
             try:
                 return self.refs[refid]
             except KeyError:
                 # reconstitute the referenced object
-                itm = self.data.xpath("//*[@z:ref='%s']" % refid,
-                    namespaces=PMAP)[0]
+                itm = refid_xpath(self.data,refid=refid)[0]
                 self.reconstitute(itm)
                 # now, we can return the thing we wanted
                 return self.refs[refid]
@@ -481,51 +491,57 @@ class Unpickler(object):
             return self.handleReduction(reduction)
 
         tag = item.tag
-        tag = tag[len(Z):]
-        klass = item.get(Z+'cls')
-        module = item.get(Z+'module')
+        tag = tag[len(P_PREFIX):]
+        klass = item.get(P_PREFIX+'cls')
+        module = item.get(P_PREFIX+'module')
 
         if klass is None:
             # class reference
-            klassobj = item.get(Z+'kls')
+            klassobj = item.get(P_PREFIX+'kls')
 
             if klassobj:
                 ret = self.find_class(module,klassobj)
 
             # function reference
-            fnobj = item.get(Z+'fn')
+            fnobj = item.get(P_PREFIX+'fn')
             if fnobj:
                 __import__(module)
                 mod = sys.modules.get(module,None)
                 if mod:
                     ret= getattr(mod,fnobj)
 
-            if item.get(Z+'ref'):
-                    self.refs[item.get(Z+'ref')] = ret
+            ref = item.get(P_PREFIX+'ref')
+            if ref:
+                self.refs[ref] = ret
             return ret
 
         if klass and module:
-            # class instance
+            # we have a class instance
             itemclass = self.find_class(module,klass)
             newargs = self.getnewargs(item)
             ret = self._instantiate(itemclass,newargs)
-            if item.get(Z+'ref'):
-                    self.refs[item.get(Z+'ref')] = ret
-            if hasattr(ret,'__setstate__'):
-                if hasattr(ret,'__getstate__'):
-                    state = self.getstate(item)
-                    if state:
-                        ret.__setstate__(state)
+            ref = item.get(P_PREFIX+'ref',None)
+
+            if ref is not None:
+                self.refs[ref] = ret
+
+            # do getstate if desired
+            if hasattr(ret,'__setstate__') and hasattr(ret,'__getstate__'):
+                state = self.getstate(item)
+                if state:
+                    ret.__setstate__(state)
 
             # populate attributes
-            for attr in item.xpath('o:*',namespaces=OMAP):
+            for attr in attr_xpath(item):
                 tag = attr.tag
-                name = tag[len(OBJ):]
+                name = tag[len(OBJ_PREFIX):]
                 #if not hasattr(ret,name):
                 setattr(ret,name,self.reconstitute(attr))
 
+            
             if not newargs:
-                # install collection data - list-like or dict-like stuff
+            #if 1:
+                # represent collection data - list-like or dict-like stuff
                 if hasattr(ret,'__getitem__'):
                     if hasattr(ret,'keys') and hasattr(ret,'values'):
                         # dict data
@@ -542,97 +558,108 @@ class Unpickler(object):
             return ret
 
         elif klass in builtins:
-            if klass in ('str', 'unicode'):
-                ret = item.text
-                if item.get(Z+'enc') == 'base64':
-                    ret = b64decode(ret)
-                if isinstance(ret,str):
-                    if klass == 'unicode':
-                        ret = unicode(ret)
-                else:
-                    if klass == 'str':
-                        ret = str(ret)
-                return ret
-            elif klass == 'list':
-                ret = []
-                if item.get(Z+'ref'):
-                    self.refs[item.get(Z+'ref')] = ret
-                lst = self.getlist(item)
-                ret[:] = lst
-                return ret
-            elif klass == 'dict':
-                ret = {}
-                if item.get(Z+'ref'):
-                    self.refs[item.get(Z+'ref')] = ret
-                dct = self.getdict(item)
-                ret.clear()
-                ret.update(dct)
-                return ret
-            elif klass == 'tuple':
-                ret = self.getlist(item)
-                ret = tuple(ret)
-                if item.get(Z+'ref'):
-                    self.refs[item.get(Z+'ref')] = ret
-                return ret
-            elif klass == 'bool':
-                if item.text == 'true':
-                    return True
-                else:
-                    return False
-            elif klass == 'NoneType':
-                return None
-            elif klass == 'int':
-                return int(item.text)
-            elif klass == 'long':
-                return long(item.text)
-            elif klass == 'float':
-                return float(item.text)
-            elif klass == 'complex':
-                rl = self.reconstitute(item.xpath('z:real',
-                    namespaces=PMAP)[0])
-                img = self.reconstitute(item.xpath('z:imag',
-                    namespaces=PMAP)[0])
-                return complex(rl,img)
-            elif klass == 'Decimal':
-                return Decimal(item.text)
+            return self.dispatch[klass](self,item)
         else:
-            raise UnpicklingError('could not unpickle')
+            raise UnpicklingError('could not unpickle %s' % item)
+            
+    def get_str(self,item):
+        ret = item.text
+        if item.get(P_PREFIX+'enc') == 'base64':
+            ret = b64decode(ret)
+        ret = str(ret)
+        return ret
+    dispatch['str'] = get_str
+
+    def get_unicode(self,item):
+        ret = item.text
+        if item.get(P_PREFIX+'enc') == 'base64':
+            ret = b64decode(ret)
+        ret = unicode(ret)
+        return ret
+    dispatch['unicode'] = get_unicode
+
+    def get_list(self,item):
+        ret = []
+        if item.get(P_PREFIX+'ref'):
+            self.refs[item.get(P_PREFIX+'ref')] = ret
+        ret[:] = self.getlist(item)
+        return ret
+    dispatch['list'] = get_list
+    
+    def get_dict(self,item):
+        ret = {}
+        if item.get(P_PREFIX+'ref'):
+            self.refs[item.get(P_PREFIX+'ref')] = ret
+        ret.update(self.getdict(item))
+        return ret
+    dispatch['dict'] = get_dict
+
+    def get_tuple(self,item):  
+        ret = tuple(self.getlist(item))
+#        if item.get(Z+'ref'):
+#            self.refs[item.get(Z+'ref')] = ret
+        return ret
+    dispatch['tuple'] = get_tuple
+    
+    def get_bool(self,item):
+        if item.text.lower() == 'true':
+            return True
+        return False
+    dispatch['bool'] = get_bool
+    
+    def get_none(self,item):
+        return None
+    dispatch['NoneType'] = get_none
+    
+    def get_int(self,item):
+        return int(item.text)
+    dispatch['int'] = get_int
+    
+    def get_long(self,item):
+        return long(item.text)
+    dispatch['long'] = get_long
+    
+    def get_float(self,item):
+        return float(item.text)
+    dispatch['float'] = get_float
+    
+    def get_decimal(self,item):
+        return Decimal(item.text)
+    dispatch['Decimal'] = get_decimal
+    
+    def get_complex(self,item):
+        rl = self.reconstitute(complex_real_xpath(item)[0])
+        imag = self.reconstitute(complex_imag_xpath(item)[0])
+        return complex(rl,imag)
+    dispatch['complex'] = get_complex
+  
     def getnewargs(self,data):
-        newargs = data.xpath('z:_newargs', namespaces=PMAP)
-        if newargs:
-            newargs = newargs[0]
-        else:
+        newargs = newargs_xpath(data)
+        if not newargs:
             return None
-        return self.reconstitute(newargs)
+        return self.reconstitute(newargs[0])
 
     def getReduction(self,data):
-        s = data.xpath('z:_reduction', namespaces=PMAP)
-        if s:
-            s = s[0]
-        else:
+        s = reduction_xpath(data)
+        if not s:
             return None
-        return self.reconstitute(s)
+        return self.reconstitute(s[0])
 
     def getstate(self,data):
-        s = data.xpath('z:_state', namespaces=PMAP)
-        if s:
-            s = s[0]
-        else:
+        s = state_xpath(data)
+        if not s:
             return None
-        return self.reconstitute(s)
+        return cPickle.loads(self.reconstitute(s[0]))
 
     def getlist(self,data):
-        t = []
-        for k in data.xpath('z:item',namespaces=PMAP):
-            t.append(self.reconstitute(k))
-        return t
-
+        reconst = self.reconstitute
+        return [reconst(k) for k in item_xpath(data)]
+   
     def getdict(self,data):
         d = {}
-        for k in data.xpath('z:key',namespaces=PMAP):
-            key = self.reconstitute(k)
-            value = self.reconstitute(k[0])
-            d[key] = value
+        reconst = self.reconstitute
+        for key,val in ((reconst(k),reconst(k[0])) for k in key_xpath(data)):
+            d[key] = val
         return d
 
     # the following two methods are borrowed and adapted a bit from python's
@@ -721,6 +748,16 @@ class Unpickler(object):
             c = globals().get(reduction)
             assert callable(c)
             return c()
+
+item_xpath = XPath('z:item',namespaces=PMAP)
+key_xpath = XPath('z:key',namespaces=PMAP)
+reduction_xpath = XPath('z:_reduction',namespaces=PMAP)
+attr_xpath = XPath('o:*',namespaces=OMAP)
+newargs_xpath = XPath('z:_newargs',namespaces=PMAP)
+refid_xpath = XPath("//*[@z:ref=$refid]",namespaces=PMAP)
+state_xpath = XPath('z:_state',namespaces=PMAP)
+complex_real_xpath = XPath('z:real',namespaces=PMAP)
+complex_imag_xpath = XPath('z:imag',namespaces=PMAP)
 
 def loads(strx):
     """

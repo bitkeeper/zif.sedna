@@ -163,14 +163,14 @@ xml.marshal load
 TIME = 1.230000
 """
 import cProfile
-cProfile.run('pickling()','profile_pickling')
+#cProfile.run('pickling()','profile_pickling')
 
 import pstats
-p = pstats.Stats('profile_pickling')
-p.sort_stats('cumulative').print_stats(15)
+#p = pstats.Stats('profile_pickling')
+#p.sort_stats('cumulative').print_stats(15)
 
-#cProfile.run('unpickling()','profile_unpickling')
+cProfile.run('unpickling()','profile_unpickling')
 
-#p = pstats.Stats('profile_unpickling')
-#p.sort_stats('cumulative').print_stats(10)
+p = pstats.Stats('profile_unpickling')
+p.sort_stats('cumulative').print_stats(10)
 
