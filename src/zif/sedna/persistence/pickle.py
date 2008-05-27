@@ -178,7 +178,7 @@ class XMLPickler(object):
     def asElement(self,obj,name=None,parent=None):
         """return an element representing obj.
 
-        if name is provalue_ided, use name for the tag, else 'pickle' is used.
+        if name is provided, use name for the tag, else 'pickle' is used.
         """
 
         if not isinstance(obj,InstanceType):
@@ -251,10 +251,10 @@ class XMLPickler(object):
         if hasattr(obj,'__getstate__'):
             state = obj.__getstate__()
             if hasattr(obj,'__setstate__'):
-                # object has a __setstate__ method, which probably provides
-                # a dense representation that will be useless in XML.  let's
-                # just pickle that.  It will show up in the XML as a base64
-                # string.
+                # object has a __setstate__ method, which means __getstate__
+                # probably provides a dense representation that will be useless
+                # in XML.  let's just pickle that.  It will show up in the XML
+                # as a base64 string.
                 pstate = cPickle.dumps(state,-1)
                 outtag = self.asElement(pstate,P_PREFIX+'_state',parent=elt)
             else:
@@ -292,7 +292,7 @@ class XMLPickler(object):
         # not sure if this will handle every possible __reduce__ output
         # reduce is mostly for extension classes
         # prefer object_slots or __dict__  or state to reduce if available
-        if not (d or state or object_slots) and hasattr(obj,'__reduce__'):
+        if not (d or state) and hasattr(obj,'__reduce__'):
             if not isinstance(obj,handled_types):
                 self.getReduction(obj,elt)
             # expose some useful text for date/datetime objects
@@ -440,10 +440,6 @@ class XMLPickler(object):
             gzfile.close()
         else:
             self.file.write(xml)
-
-    def persistent_id(self,obj):
-        if IPersistent.providedBy(obj):
-            return b64encode(obj._p_oid)
 
 builtins = set(['NoneType','bool', 'complex', 'dict', 'float','frozenset',
  'int', 'list', 'long', 'set', 'tuple', 'decimal', 'str', 'unicode',
@@ -613,15 +609,13 @@ class Unpickler(object):
 
     def get_tuple(self,item):
         ret = tuple(self.getlist(item))
-#        if item.get(Z+'ref'):
+#        if item.get(P_PREFIX+'ref'):
 #            self.refs[item.get(Z+'ref')] = ret
         return ret
     dispatch['tuple'] = get_tuple
 
     def get_bool(self,item):
-        if item.text.lower() == 'true':
-            return True
-        return False
+        return item.text.lower() == 'true'
     dispatch['bool'] = get_bool
 
     def get_none(self,item):
