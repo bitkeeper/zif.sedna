@@ -1,0 +1,7 @@
+Acknowledgement:
+
+These tests are adapted from David Mertz's tests for gnosis.xml.pickle,
+available at http://gnosis.cx/download/Gnosis_Utils-current.tar.gz or at the
+python cheese shop.
+
+
