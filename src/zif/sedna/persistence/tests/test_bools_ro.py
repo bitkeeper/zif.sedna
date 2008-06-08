@@ -19,25 +19,25 @@ from types import *
 # NOTE: The XML below was created by running test_bools.py with
 # Python >= 2.3 and grabbing the XML output.
 
-x1 = """<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:module="__main__" z:cls="foo">
-  <a z:cls="bool">false<z:_newargs z:cls="tuple"><z:item z:cls="int">0</z:item></z:_newargs></a>
-  <c z:cls="NoneType"/>
-  <b z:cls="bool">true<z:_newargs z:cls="tuple"><z:item z:cls="int">1</z:item></z:_newargs></b>
-  <k z:kls="a_test_class" z:module="__main__"/>
-  <f z:fn="a_test_function" z:module="__main__"/>
-</z:pickle>
+x1 = """
+<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="foo" module="__main__">
+  <o:a class="bool">false</o:a>
+  <o:c class="NoneType">None</o:c>
+  <o:b class="bool">true</o:b>
+  <o:k cls="a_test_class" module="__main__"/>
+  <o:f fn="a_test_function" module="__main__"/>
+</pickle>
+"""
 
+x2 = """<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="tuple">
+  <item class="bool">true</item>
+  <item class="bool">false</item>
+</pickle>
 
 """
 
-x2 = """<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="tuple">
-  <z:item z:cls="bool">true<z:_newargs z:cls="tuple"><z:item z:cls="int">1</z:item></z:_newargs></z:item>
-  <z:item z:cls="bool">false<z:_newargs z:cls="tuple"><z:item z:cls="int">0</z:item></z:_newargs></z:item>
-</z:pickle>
+x3 = """<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="bool">true</pickle>
 
-"""
-
-x3 = """<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="bool">true<z:_newargs z:cls="tuple"><z:item z:cls="int">1</z:item></z:_newargs></z:pickle>
 
 """
 

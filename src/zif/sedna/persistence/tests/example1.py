@@ -68,7 +68,9 @@ def getAuto():
     a.engine.manufacturer = 'Ford'
     return a
 
-    
+if __name__ == '__main__':
+    from zif.sedna.persistence import pickle
+    print pickle.dumpsp(getAuto())
     
     
 

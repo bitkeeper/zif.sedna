@@ -1,37 +1,38 @@
 #-- Hand generated test object
 #
 # if you change this, you have to sync w/the checks below
-test_xml = """
-<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="Automobile" z:module="example1">
-  <engine z:cls="Engine" z:module="example1">
-    <cylinders z:cls="int">4</cylinders>
-    <manufacturer z:cls="str">Ford</manufacturer>
-  </engine>
-  <repairs z:cls="list">
-    <z:item z:cls="str">June 1, 1999: Fixed radiator</z:item>
-    <z:item z:cls="Swindle" z:module="example1">
-      <date z:module="datetime" z:cls="date">1999-07-01<z:_reduction z:cls="tuple"><z:item z:kls="date" z:module="datetime"/><z:item z:cls="tuple"><z:item z:cls="str" z:enc="base64">B88HAQ==</z:item></z:item></z:_reduction></date>
-      <swindler z:cls="str">Ed's Auto</swindler>
-      <purport z:cls="str">Fix A/C</purport>
-    </z:item>
-  </repairs>
-  <doors z:cls="int">4</doors>
-  <prev_owners z:cls="tuple">
-    <z:item z:cls="str">Jane Smith</z:item>
-    <z:item z:cls="tuple">
-      <z:item z:cls="str">John Doe</z:item>
-      <z:item z:cls="str">Betty Doe</z:item>
-    </z:item>
-    <z:item z:cls="str">Charles Ng</z:item>
-  </prev_owners>
-  <tow_hitch z:cls="NoneType"/>
-  <make z:cls="str">Honda</make>
-  <options z:cls="dict">
-    <z:key z:cls="str">Cup Holders<z:val z:cls="int">4</z:val></z:key>
-    <z:key z:cls="str">Custom Wheels<z:val z:cls="str">Chrome Spoked</z:val></z:key>
-  </options>
-</z:pickle>
 
+# module should be zif.sedna.persistence.tests.example1
+test_xml = """
+<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="Automobile" module="zif.sedna.persistence.tests.example1">
+  <o:engine class="Engine" module="zif.sedna.persistence.tests.example1">
+    <o:cylinders class="int">4</o:cylinders>
+    <o:manufacturer class="str">Ford</o:manufacturer>
+  </o:engine>
+  <o:repairs class="list">
+    <item class="str">June 1, 1999: Fixed radiator</item>
+    <item class="Swindle" module="zif.sedna.persistence.tests.example1">
+      <o:date class="date" module="datetime">1999-07-01<_reduction class="tuple"><item cls="date" module="datetime"/><item class="tuple"><item class="str" enc="base64">B88HAQ==</item></item></_reduction></o:date>
+      <o:swindler class="str">Ed's Auto</o:swindler>
+      <o:purport class="str">Fix A/C</o:purport>
+    </item>
+  </o:repairs>
+  <o:doors class="int">4</o:doors>
+  <o:prev_owners class="tuple">
+    <item class="str">Jane Smith</item>
+    <item class="tuple">
+      <item class="str">John Doe</item>
+      <item class="str">Betty Doe</item>
+    </item>
+    <item class="str">Charles Ng</item>
+  </o:prev_owners>
+  <o:tow_hitch class="NoneType">None</o:tow_hitch>
+  <o:make class="str">Honda</o:make>
+  <o:options class="dict">
+    <key class="str">Cup Holders<val class="int">4</val></key>
+    <key class="str">Custom Wheels<val class="str">Chrome Spoked</val></key>
+  </o:options>
+</pickle>
 """
 
 if __name__=='__main__':

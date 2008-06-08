@@ -10,7 +10,7 @@ import re
 # handcoded object to load Foo (i.e. without the pickler having
 # seen it before)
 ud_xml = """<?xml version="1.0"?>
-<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="Foo" z:module="__main__"/>
+<z:pickle xmlns:s="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" class="Foo" module="__main__"/>
 """
 
 class myfoo: pass
@@ -81,7 +81,7 @@ s = xml_pickle.dumps(p)
 print s
 if not re.search('module="__main__"',s):
     raise "ERROR(8)"
-if not re.search('cls="Foo"',s):
+if not re.search('class="Foo"',s):
     raise "ERROR(9)"
 
 print "** OK **"

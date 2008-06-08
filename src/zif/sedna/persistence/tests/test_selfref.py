@@ -222,11 +222,11 @@ item.lst.append(item.lst)
 
 
 s = """
-<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="Spam" z:module="__main__" z:ref="aaaa">
-    <lst z:attr="1" z:cls="list" z:ref="bbbb">
-        <z:item z:refto="aaaa"/>
-        <z:item z:refto="bbbb"/>
-    </lst>
+<z:pickle xmlns:o="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" class="Spam" module="__main__" id="aaaa">
+    <o:lst class="list" id="bbbb">
+        <z:item idref="aaaa"/>
+        <z:item idref="bbbb"/>
+    </o:lst>
 </z:pickle>
 """
 
@@ -243,8 +243,8 @@ o2 = xml_pickle.loads(s)
 print xml_pickle.dumpsp(o2)
 
 s = """
-<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" z:cls="Spam" z:module="__main__" z:ref="1111">
-    <parent z:attr="1" z:refto="1111"/>
+<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" class="Spam"  module="__main__" id="1111">
+    <parent idref="1111"/>
 </z:pickle>
 """
 
@@ -278,14 +278,14 @@ x.y				= A(2)
 x.y.z			= A(3)
 x.y.z.setParent(x.y)
 
-#print "Expect: 1 2 3 2"
-#print x.x,x.y.x,x.y.z.x,x.y.z.__parent__.x
+print "Expect: 1 2 3 2"
+print x.x, x.y.x, x.y.z.x, x.y.z.__parent__.x
 
 s = xml_pickle.dumpsp(x)
 print s
 p = xml_pickle.loads(s)
 
-#print p.x,p.y.x,p.y.z.x,p.y.z.__parent__.x
+print p.x,p.y.x,p.y.z.x,p.y.z.__parent__.x
 
 if [x.x,x.y.x,x.y.z.x,x.y.z.__parent__.x] != \
    [p.x,p.y.x,p.y.z.x,p.y.z.__parent__.x]:

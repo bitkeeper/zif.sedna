@@ -30,8 +30,8 @@ f.e = f.d['Two']
 
 #print f.a, f.b, f.y,f.z,f.l,f.d,f.e
 
-x = xml_pickle.dumps(f)
-#print x
+x = xml_pickle.dumpsp(f)
+print x
 
 #del f
 
