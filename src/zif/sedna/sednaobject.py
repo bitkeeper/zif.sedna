@@ -33,10 +33,12 @@ from cStringIO import StringIO
 import zope.component
 import zope.interface
 
+brace_replacers = {'{':'&#x7b;','}':'&#x7d;'}
+
 def escapeCurlyBraces(s):
     for char in ('{','}'):
         if char in s:
-            s = s.replace(char,char*2)
+            s = s.replace(char,brace_replacers[char])
     return s
 
 class ISednaXMLString(zope.interface.Interface):

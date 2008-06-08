@@ -155,10 +155,7 @@ def escapeAndQuote(aDict):
     return newDict
 
 def strlen(aList):
-    slen = 0
-    for item in aList:
-        slen += len(item)
-    return slen
+    return sum((len(i) for i in aList))
 
 class BasicCursor(object):
     """a PEP-249-like cursor to a zif.sedna protocol object
