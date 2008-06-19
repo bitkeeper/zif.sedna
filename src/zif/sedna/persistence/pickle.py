@@ -55,12 +55,12 @@ OBJ_NAMESPACE="http://namespaces.zope.org/pyobj"
 PKL_PREFIX = '{%s}' % PKL_NAMESPACE
 OBJ_PREFIX= '{%s}' % OBJ_NAMESPACE
 PMAP = {'p':PKL_NAMESPACE}
-NAMESPACES = {None:PKL_NAMESPACE, 'u':OBJ_NAMESPACE}
+NAMESPACES = {None:PKL_NAMESPACE}
 OMAP={'o':OBJ_NAMESPACE}
 
 pprefixlen = len(PKL_PREFIX)
 
-base_element_name = 'pickle'
+base_element_name = 'Pickle'
 
 parser = XMLParser(ns_clean=True)
 
@@ -133,10 +133,12 @@ class XMLPickler(object):
     with Unpickler.  It is important to note that tuples are maintained
     immutably.  Tuples that "look the same" will be duplicated, not
     handled as references to the first one.
-
     """
     dispatch = {}
     def __init__(self, f=None, omit_attrs=None, want_uuid=False):
+        """omit_attrs is a list of beginnings of attribute names that should
+        not be included.  For example if omit_attrs is ['_v_'], any object
+        attribute starting with _v_ will be omitted for serialization."""
         if f:
             self.file = f
         self.memo = {}
@@ -161,34 +163,40 @@ class XMLPickler(object):
         objid = id(obj)
         self.memo[objid] = (ref, tag)
 
-    def asRef(self, obj_id, name=None, parent=None):
-        if not name:
-            name = PKL_PREFIX + base_element_name
+    def asRef(self, obj_id, name=None, parent=None, element_name=None):
+        if element_name is None:
+            element_name = PKL_PREFIX + base_element_name
         ref_id, source = self.memo[obj_id]
         source.set('id', str(ref_id))
+        attrs = {'idref':str(ref_id)}
+        if name:
+            attrs['name'] = name
         if parent is not None:
-            elt = SubElement(parent, name, {'idref':str(ref_id)},
+            elt = SubElement(parent, element_name, attrs,
                 nsmap=NAMESPACES)
         else:
-            elt = Element(name, {'idref':str(ref_id)}, nsmap=NAMESPACES)
+            elt = Element(element_name, attrs, nsmap=NAMESPACES)
         return elt
 
-    def as_class_element(self, obj, name=None, parent=None):
-        if not name:
-            name = PKL_PREFIX + base_element_name
+    def as_class_element(self, obj, name=None, parent=None, element_name=None):
+        if element_name is None:
+            element_name = PKL_PREFIX + base_element_name
         module = obj.__module__
         classname = obj.__name__
+        attrs = {'cls':classname}
+        if name is not None:
+            attrs['name'] = name
         if parent is not None:
-            elt = SubElement(parent, name, {'cls':classname}, nsmap=NAMESPACES)
+            elt = SubElement(parent, element_name, attrs, nsmap=NAMESPACES)
         else:
-            elt = Element(name, {'cls':classname}, nsmap=NAMESPACES)
+            elt = Element(element_name, attrs, nsmap=NAMESPACES)
         if not module in handled_modules:
             elt.set('module', module)
         return elt
 
-    def as_function_element(self, obj, name=None, parent=None):
-        if not name:
-            name = PKL_PREFIX + base_element_name
+    def as_function_element(self, obj, name=None, parent=None, element_name=None):
+        if element_name is None:
+            element_name = PKL_PREFIX + base_element_name
         fname = obj.__name__
         # borrowed from gnosis utils
         if not name == '__main__':
@@ -199,43 +207,37 @@ class XMLPickler(object):
         else:
             module_name = '__main__'
         module = module_name
+        attrs = {'fn':fname}
+        if name:
+            attrs['name'] = name
         if parent is not None:
-            elt = SubElement(parent, name, {'fn':fname}, nsmap=NAMESPACES)
+            elt = SubElement(parent, element_name, attrs, nsmap=NAMESPACES)
         else:
-            elt = Element(name, {'fn':fname}, nsmap=NAMESPACES)
+            elt = Element(element_name, attrs, nsmap=NAMESPACES)
         if not module in handled_modules:
             elt.set('module', module)
         return elt
 
-    def as_element(self, obj, name=None, parent=None):
-        """return an element representing obj.
+    def as_element(self, obj, name=None, parent=None, element_name=None):
+        """Return an element representing obj.
 
-        if name is provided, use name for the tag, else 'pickle' is used.
+        If name is provided, use name for the tag, else 'pickle' is used.
 
-        parent is used internally as a pointer to the parent XML tag
-
-        omit_attrs is a list of beginnings of attribute names that should
-        not be included.  For example if omit_attrs is ['_v_'], any object
-        attribute starting with _v_ will be omitted for serialization.
+        Parent is used internally as a pointer to the parent XML tag.
 
         """
 
         if not isinstance(obj, InstanceType):
             if isinstance(obj, (ClassType)):
-                return self.as_class_element(obj, name, parent=parent)
+                return self.as_class_element(obj, name, parent=parent, element_name=element_name)
             elif isinstance(obj, (FunctionType, BuiltinFunctionType)):
-                return self.as_function_element(obj, name, parent=parent)
+                return self.as_function_element(obj, name, parent=parent, element_name=element_name)
             elif isinstance(obj, (TypeType))and \
                     not obj.__name__ in base_classes:
-                return self.as_class_element(obj, name, parent=parent)
-        #top_level = False
-        if name is None:
-            name = PKL_PREFIX + base_element_name
-            nmap = NAMESPACES
-            #top_level = True
-        else:
-            name = name
-            nmap = NAMESPACES
+                return self.as_class_element(obj, name, parent=parent, element_name=element_name)
+        if element_name is None:
+            element_name = PKL_PREFIX + base_element_name
+        nmap = NAMESPACES
         needReduce = False
         try:
             class_ = obj.__class__
@@ -253,14 +255,15 @@ class XMLPickler(object):
         if not module in handled_modules:
             attrs['module']=module
         attrs['class']=class_name
-
+        if name is not None:
+            attrs['name'] = name
 
         #print parent,name,attrs,nmap
         # create the element
         if parent is not None:
-            elt = SubElement(parent, name, attrs, nsmap=nmap)
+            elt = SubElement(parent, element_name, attrs, nsmap=nmap)
         else:
-            elt = Element(name, attrs, nsmap=nmap)
+            elt = Element(element_name, attrs, nsmap=nmap)
 
         # return element for basic python objects
         if class_name in base_classes and module in handled_modules:
@@ -286,7 +289,7 @@ class XMLPickler(object):
         # at this point obj is an always an instance, so memoize
         self.memoize(obj, elt)
 
-        # we're pickling to XML to be searchable, so __dict__ needs to go in,
+        # we're pickling to XML to be searchable, so we want __dict__ to go in,
         # even if __getstate___ wants something different
         if hasattr(obj, '__dict__'):
             objdict = obj.__dict__
@@ -301,8 +304,8 @@ class XMLPickler(object):
                 # as a base64 string.
                 pstate = cPickle.dumps(state, -1)
                 #pstate = state
-                outtag = self.as_element(pstate, PKL_PREFIX + '_state',
-                    parent=elt)
+                outtag = self.as_element(pstate, parent=elt,
+                    element_name=PKL_PREFIX+'State')
             else:
                 # there is no __setstate__, so put state in __dict__
                 d.update(state)
@@ -319,8 +322,8 @@ class XMLPickler(object):
         if not new_args and hasattr(obj, '__getinitargs__'):
             new_args = obj.__getinitargs__()
         if new_args:
-            outtag = self.as_element(new_args, PKL_PREFIX + '_newargs',
-                parent=elt)
+            outtag = self.as_element(new_args,
+                parent=elt, element_name=PKL_PREFIX+'NewArgs')
 
         # set the contents of slots into dict, though
         # classes with __slots__ should be use __getstate__ and __setstate__
@@ -347,9 +350,12 @@ class XMLPickler(object):
             if class_name in ('date', 'datetime'):
                 if module == 'datetime':
                     t = obj.isoformat()
-                    elt.text = t
+                    t = str(obj)
+                    repres = SubElement(elt,PKL_PREFIX+"Repr")
+                    repres.text = t
 
         # now, write the __dict__ information.
+        attributes = Element(PKL_PREFIX+'Attributes')
         for key, value in d.items():
             # persist is true if the object attribute should not be omitted
             persist = True
@@ -361,11 +367,12 @@ class XMLPickler(object):
             if persist:
                 value_id = id(value)
                 if value_id in self.memo:
-                    self.asRef(value_id, name=OBJ_PREFIX + key, parent=elt)
+                    self.asRef(value_id, name=key, parent=attributes, element_name=PKL_PREFIX+'Attribute')
                 else:
-                    outputtag = self.as_element(value, OBJ_PREFIX + key,
-                        parent=elt)
-
+                    outputtag = self.as_element(value, key,
+                        parent=attributes, element_name=PKL_PREFIX+'Attribute')
+        if len(attributes):
+            elt.append(attributes)
         # do no more unless we have an obj subclassing base python objects
         if not issubclass(class_, handled_types):
             return elt
@@ -423,32 +430,37 @@ class XMLPickler(object):
     dispatch['float'] = handle_number
 
     def handle_complex(self, obj, elt):
-        self.as_element(obj.real, PKL_PREFIX  + 'real', parent=elt)
-        self.as_element(obj.imag, PKL_PREFIX + 'imag', parent=elt)
+        self.as_element(obj.real,parent=elt, element_name=PKL_PREFIX  + 'Real')
+        self.as_element(obj.imag, parent=elt,element_name=PKL_PREFIX + 'Imag')
     dispatch['complex'] = handle_complex
 
     def get_sequence_items(self, obj, elt):
         if isinstance(obj, list):
             # only memoize lists, not tuples
             self.memoize(obj, elt)
+        collection = SubElement(elt,PKL_PREFIX+'Collection')
+        collection.set('type','sequence')
         for listitem in obj:
             value_id = id(listitem)
             if value_id in self.memo:
-                self.asRef(value_id, PKL_PREFIX + 'item', parent=elt)
+                self.asRef(value_id, parent=collection, element_name=PKL_PREFIX + 'Item')
             else:
-                self.as_element(listitem, PKL_PREFIX + 'item', parent=elt)
+                self.as_element(listitem, parent=collection,element_name=PKL_PREFIX + 'Item')
     dispatch['list'] = get_sequence_items
     dispatch['tuple'] = get_sequence_items
 
     def get_dict_items(self, obj, elt):
         self.memoize(obj, elt)
+        collection = SubElement(elt,PKL_PREFIX+'Collection')
+        collection.set('type','mapping')
         for akey, avalue in obj.items():
-            key = self.as_element(akey, PKL_PREFIX + 'key', parent=elt)
+            item = SubElement(collection,PKL_PREFIX+'Item')
+            self.as_element(akey, parent=item, element_name=PKL_PREFIX + 'Key')
             value_id = id(avalue)
             if value_id in self.memo:
-                self.asRef(value_id, PKL_PREFIX + 'val', parent=key)
+                self.asRef(value_id, parent=item, element_name=PKL_PREFIX + 'Value')
             else:
-                self.as_element(avalue, PKL_PREFIX + 'val', parent=key)
+                self.as_element(avalue, parent=item, element_name=PKL_PREFIX + 'Value')
     dispatch['dict'] = get_dict_items
 
     def get_reduction(self, obj, elt):
@@ -462,7 +474,7 @@ class XMLPickler(object):
                 raise PicklingError('%s item cannot be pickled' % type(obj))
         if isinstance(reduction, basestring):
             reduction = globals().get(reduction)
-        outtag = self.as_element(reduction, PKL_PREFIX + '_reduction',
+        outtag = self.as_element(reduction, element_name=PKL_PREFIX + 'Reduction',
             parent=elt)
         obj = None
 
@@ -605,7 +617,9 @@ class Unpickler(object):
             # populate attributes
             for attr in attr_xpath(item):
                 tag = attr.tag
-                name = tag[len(OBJ_PREFIX):]
+                #name = tag[len(OBJ_PREFIX):]
+                name = attr.get('name')
+                #print name
                 #if not hasattr(ret, name):
                 setattr(ret, name, self.reconstitute(attr))
 
@@ -727,8 +741,12 @@ class Unpickler(object):
     def getdict(self, data):
         d = {}
         reconst = self.reconstitute
-        for key, val in ((reconst(k), reconst(k[0])) for k in key_xpath(data)):
+        for item in item_xpath(data):
+            key = reconst(key_xpath(item)[0])
+            val = reconst(value_xpath(item)[0])
             d[key] = val
+        #for key, val in ((reconst(k), reconst(k[0])) for k in key_xpath(data)):
+            #d[key] = val
         return d
 
     # the following two methods are borrowed and adapted a bit from python's
@@ -817,14 +835,15 @@ class Unpickler(object):
             assert callable(c)
             return c()
 
-item_xpath = XPath('p:item', namespaces=PMAP)
-key_xpath = XPath('p:key', namespaces=PMAP)
-reduction_xpath = XPath('p:_reduction', namespaces=PMAP)
-attr_xpath = XPath('o:*', namespaces=OMAP)
-newargs_xpath = XPath('p:_newargs', namespaces=PMAP)
-state_xpath = XPath('p:_state', namespaces=PMAP)
-complex_real_xpath = XPath('p:real', namespaces=PMAP)
-complex_imag_xpath = XPath('p:imag', namespaces=PMAP)
+item_xpath = XPath('p:Collection/p:Item', namespaces=PMAP)
+key_xpath = XPath('p:Key', namespaces=PMAP)
+value_xpath = XPath('p:Value', namespaces=PMAP)
+reduction_xpath = XPath('p:Reduction', namespaces=PMAP)
+attr_xpath = XPath('p:Attributes/p:Attribute', namespaces=PMAP)
+newargs_xpath = XPath('p:NewArgs', namespaces=PMAP)
+state_xpath = XPath('p:State', namespaces=PMAP)
+complex_real_xpath = XPath('p:Real', namespaces=PMAP)
+complex_imag_xpath = XPath('p:Imag', namespaces=PMAP)
 idref_xpath = XPath("//*[@idref=$idref]")
 
 def loads(s):

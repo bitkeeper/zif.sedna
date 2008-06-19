@@ -9,7 +9,7 @@ from UserList import UserList
 import funcs
 
 #funcs.set_parser()
-    
+
 class foo: pass
 
 # so we can unpickle foo
@@ -43,7 +43,7 @@ if g['a'] != 1 or id(g['b']) != id(g):
 
 bltin_objs = ["abc",123,123.45,12+34j,{'A':1, 'B':2, 'C': 3},
               [1,2,'a','b'],('a','b',1,2)]
-    
+
 for o in bltin_objs:
 
     x = xml_pickle.dumps(o)
@@ -51,7 +51,7 @@ for o in bltin_objs:
 
     if o != o2:
         raise "ERROR(3)"
-    
+
 ##s = "abc"
 ##x = xml_pickle.dumps(s)
 ###print s
@@ -129,7 +129,7 @@ for o in bltin_objs:
 
     if g.s != f.s:
         raise "ERROR(5)"
-    
+
 ##f = foo()
 
 ##f.s = "abc"
@@ -185,7 +185,7 @@ for o in bltin_objs:
     ## careful -- type(foo) == InstanceType == "everything" :-)
     #def wants_obj(self,obj):
         #return obj.__class__ == foo
-    
+
     #def mutate(self,obj):
         ## a tricky self-ref
         #obj.breakage = obj
@@ -220,14 +220,20 @@ item.lst = []
 item.lst.append(item)
 item.lst.append(item.lst)
 
+print xml_pickle.dumpsp(item)
 
 s = """
-<z:pickle xmlns:o="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" class="Spam" module="__main__" id="aaaa">
-    <o:lst class="list" id="bbbb">
-        <z:item idref="aaaa"/>
-        <z:item idref="bbbb"/>
-    </o:lst>
-</z:pickle>
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam" module="__main__" id="aaaaa">
+  <Attributes>
+    <Attribute class="list" name="lst" id="aaaab">
+      <Collection type="sequence">
+        <Item idref="aaaaa"/>
+        <Item idref="aaaab"/>
+      </Collection>
+    </Attribute>
+  </Attributes>
+</Pickle>
+
 """
 
 #s="""
@@ -243,9 +249,11 @@ o2 = xml_pickle.loads(s)
 print xml_pickle.dumpsp(o2)
 
 s = """
-<z:pickle xmlns="http://namespaces.zope.org/pyobj" xmlns:z="http://namespaces.zope.org/pickle" class="Spam"  module="__main__" id="1111">
-    <parent idref="1111"/>
-</z:pickle>
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam"  module="__main__" id="1111">
+    <Attributes>
+    <Attribute name="parent" idref="1111"/>
+    </Attributes>
+</Pickle>
 """
 
 #s="""<?xml version="1.0"?>
@@ -260,7 +268,7 @@ print xml_pickle.dumps(o2)
 
 # check ref
 if id(o2) != id(o2.parent):
-    raise "ERROR(8)"	
+    raise "ERROR(8)"
 
 #
 # from a bug report sent by Wolfgang Feix <wolfgang.feix@lagosoft.de>

@@ -20,14 +20,14 @@ f.b = test_ftypes_i.gimme_bfunc()
 f.p = test_ftypes_i.gimme_pfunc()
 f.f = foo
 
-#print f.b, f.p, f.f
+print f.b, f.p, f.f
 
 x = xml_pickle.dumps(f)
-#print x
+print x
 
 g = xml_pickle.loads(x)
 
-#print g.b, g.p, g.f
+print g.b, g.p, g.f
 
 # check it
 for attr in ['b','p','f']:

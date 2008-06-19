@@ -4,40 +4,73 @@
 
 # module should be zif.sedna.persistence.tests.example1
 test_xml = """
-<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="Automobile" module="zif.sedna.persistence.tests.example1">
-  <o:engine class="Engine" module="zif.sedna.persistence.tests.example1">
-    <o:cylinders class="int">4</o:cylinders>
-    <o:manufacturer class="str">Ford</o:manufacturer>
-  </o:engine>
-  <o:repairs class="list">
-    <item class="str">June 1, 1999: Fixed radiator</item>
-    <item class="Swindle" module="zif.sedna.persistence.tests.example1">
-      <o:date class="date" module="datetime">1999-07-01<_reduction class="tuple"><item cls="date" module="datetime"/><item class="tuple"><item class="str" enc="base64">B88HAQ==</item></item></_reduction></o:date>
-      <o:swindler class="str">Ed's Auto</o:swindler>
-      <o:purport class="str">Fix A/C</o:purport>
-    </item>
-  </o:repairs>
-  <o:doors class="int">4</o:doors>
-  <o:prev_owners class="tuple">
-    <item class="str">Jane Smith</item>
-    <item class="tuple">
-      <item class="str">John Doe</item>
-      <item class="str">Betty Doe</item>
-    </item>
-    <item class="str">Charles Ng</item>
-  </o:prev_owners>
-  <o:tow_hitch class="NoneType">None</o:tow_hitch>
-  <o:make class="str">Honda</o:make>
-  <o:options class="dict">
-    <key class="str">Cup Holders<val class="int">4</val></key>
-    <key class="str">Custom Wheels<val class="str">Chrome Spoked</val></key>
-  </o:options>
-</pickle>
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="Automobile" module="zif.sedna.persistence.tests.example1">
+  <Attributes>
+    <Attribute class="Engine" module="zif.sedna.persistence.tests.example1" name="engine">
+      <Attributes>
+        <Attribute class="int" name="cylinders">4</Attribute>
+        <Attribute class="str" name="manufacturer">Ford</Attribute>
+      </Attributes>
+    </Attribute>
+    <Attribute class="list" name="repairs">
+      <Collection type="sequence">
+        <Item class="str">June 1, 1999: Fixed radiator</Item>
+        <Item class="Swindle" module="zif.sedna.persistence.tests.example1">
+          <Attributes>
+            <Attribute class="date" module="datetime" name="date">
+              <Reduction class="tuple">
+                <Collection type="sequence">
+                  <Item cls="date" module="datetime"/>
+                  <Item class="tuple">
+                    <Collection type="sequence">
+                      <Item class="str" enc="base64">B88HAQ==</Item>
+                    </Collection>
+                  </Item>
+                </Collection>
+              </Reduction>
+              <Repr>1999-07-01</Repr>
+            </Attribute>
+            <Attribute class="str" name="swindler">Ed's Auto</Attribute>
+            <Attribute class="str" name="purport">Fix A/C</Attribute>
+          </Attributes>
+        </Item>
+      </Collection>
+    </Attribute>
+    <Attribute class="int" name="doors">4</Attribute>
+    <Attribute class="tuple" name="prev_owners">
+      <Collection type="sequence">
+        <Item class="str">Jane Smith</Item>
+        <Item class="tuple">
+          <Collection type="sequence">
+            <Item class="str">John Doe</Item>
+            <Item class="str">Betty Doe</Item>
+          </Collection>
+        </Item>
+        <Item class="str">Charles Ng</Item>
+      </Collection>
+    </Attribute>
+    <Attribute class="NoneType" name="tow_hitch">None</Attribute>
+    <Attribute class="str" name="make">Honda</Attribute>
+    <Attribute class="dict" name="options">
+      <Collection type="mapping">
+        <Item>
+          <Key class="str">Cup Holders</Key>
+          <Value class="int">4</Value>
+        </Item>
+        <Item>
+          <Key class="str">Custom Wheels</Key>
+          <Value class="str">Chrome Spoked</Value>
+        </Item>
+      </Collection>
+    </Attribute>
+  </Attributes>
+</Pickle>
+
 """
 
 if __name__=='__main__':
     #from gnosis.xml.pickle import XML_Pickler
-    #import gnosis.xml.pickle as xml_pickle	
+    #import gnosis.xml.pickle as xml_pickle
     #from gnosis.xml.pickle.util import add_class_to_store
     import funcs
 
@@ -63,7 +96,7 @@ if __name__=='__main__':
     o2.dct = { "this": "that", "spam": "eggs", 3.14: "about PI" }
     o2.dct2 = o2.dct
     o.obj = o2
-    
+
     #print '------* Print python-defined pickled object *-----'
     # pickle it
     s = xml_pickle.dumpsp(o)
@@ -87,6 +120,7 @@ if __name__=='__main__':
             raise "ERROR(1)"
 
     for attr in ['tup','tup2','num','dct','dct2']:
+        getattr(t.obj,attr)
         if getattr(o.obj,attr) != getattr(t.obj,attr):
             raise "ERROR(2)"
 

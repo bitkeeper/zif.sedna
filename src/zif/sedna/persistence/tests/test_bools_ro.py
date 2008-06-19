@@ -20,25 +20,30 @@ from types import *
 # Python >= 2.3 and grabbing the XML output.
 
 x1 = """
-<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="foo" module="__main__">
-  <o:a class="bool">false</o:a>
-  <o:c class="NoneType">None</o:c>
-  <o:b class="bool">true</o:b>
-  <o:k cls="a_test_class" module="__main__"/>
-  <o:f fn="a_test_function" module="__main__"/>
-</pickle>
-"""
-
-x2 = """<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="tuple">
-  <item class="bool">true</item>
-  <item class="bool">false</item>
-</pickle>
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="foo" module="__main__">
+  <Attributes>
+    <Attribute class="bool" name="a">false</Attribute>
+    <Attribute class="NoneType" name="c">None</Attribute>
+    <Attribute class="bool" name="b">true</Attribute>
+    <Attribute name="k" cls="a_test_class" module="__main__"/>
+    <Attribute name="f" fn="a_test_function" module="__main__"/>
+  </Attributes>
+</Pickle>
 
 """
 
-x3 = """<pickle xmlns="http://namespaces.zope.org/pickle" xmlns:o="http://namespaces.zope.org/pyobj" class="bool">true</pickle>
+x2 = """
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="tuple">
+  <Collection type="sequence">
+    <Item class="bool">true</Item>
+    <Item class="bool">false</Item>
+  </Collection>
+</Pickle>
 
+"""
 
+x3 = """
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="bool">true</Pickle>
 """
 
 # copied the data types from test_bools also
