@@ -34,10 +34,10 @@ x1 = """
 
 x2 = """
 <Pickle xmlns="http://namespaces.zope.org/pickle" class="tuple">
-  <Collection type="sequence">
+  <Sequence>
     <Item class="bool">true</Item>
     <Item class="bool">false</Item>
-  </Collection>
+  </Sequence>
 </Pickle>
 
 """

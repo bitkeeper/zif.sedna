@@ -13,20 +13,20 @@ test_xml = """
       </Attributes>
     </Attribute>
     <Attribute class="list" name="repairs">
-      <Collection type="sequence">
+      <Sequence>
         <Item class="str">June 1, 1999: Fixed radiator</Item>
         <Item class="Swindle" module="zif.sedna.persistence.tests.example1">
           <Attributes>
             <Attribute class="date" module="datetime" name="date">
               <Reduction class="tuple">
-                <Collection type="sequence">
+                <Sequence>
                   <Item cls="date" module="datetime"/>
                   <Item class="tuple">
-                    <Collection type="sequence">
+                    <Sequence>
                       <Item class="str" enc="base64">B88HAQ==</Item>
-                    </Collection>
+                    </Sequence>
                   </Item>
-                </Collection>
+                </Sequence>
               </Reduction>
               <Repr>1999-07-01</Repr>
             </Attribute>
@@ -34,25 +34,25 @@ test_xml = """
             <Attribute class="str" name="purport">Fix A/C</Attribute>
           </Attributes>
         </Item>
-      </Collection>
+      </Sequence>
     </Attribute>
     <Attribute class="int" name="doors">4</Attribute>
     <Attribute class="tuple" name="prev_owners">
-      <Collection type="sequence">
+      <Sequence>
         <Item class="str">Jane Smith</Item>
         <Item class="tuple">
-          <Collection type="sequence">
+          <Sequence>
             <Item class="str">John Doe</Item>
             <Item class="str">Betty Doe</Item>
-          </Collection>
+          </Sequence>
         </Item>
         <Item class="str">Charles Ng</Item>
-      </Collection>
+      </Sequence>
     </Attribute>
     <Attribute class="NoneType" name="tow_hitch">None</Attribute>
     <Attribute class="str" name="make">Honda</Attribute>
     <Attribute class="dict" name="options">
-      <Collection type="mapping">
+      <Mapping>
         <Item>
           <Key class="str">Cup Holders</Key>
           <Value class="int">4</Value>
@@ -61,7 +61,7 @@ test_xml = """
           <Key class="str">Custom Wheels</Key>
           <Value class="str">Chrome Spoked</Value>
         </Item>
-      </Collection>
+      </Mapping>
     </Attribute>
   </Attributes>
 </Pickle>

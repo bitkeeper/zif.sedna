@@ -223,13 +223,13 @@ item.lst.append(item.lst)
 print xml_pickle.dumpsp(item)
 
 s = """
-<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam" module="__main__" id="aaaaa">
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam" module="__main__" xml:id="aaaaa">
   <Attributes>
-    <Attribute class="list" name="lst" id="aaaab">
-      <Collection type="sequence">
+    <Attribute class="list" name="lst" xml:id="aaaab">
+      <Sequence>
         <Item idref="aaaaa"/>
         <Item idref="aaaab"/>
-      </Collection>
+      </Sequence>
     </Attribute>
   </Attributes>
 </Pickle>
@@ -249,9 +249,9 @@ o2 = xml_pickle.loads(s)
 print xml_pickle.dumpsp(o2)
 
 s = """
-<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam"  module="__main__" id="1111">
+<Pickle xmlns="http://namespaces.zope.org/pickle" class="Spam"  module="__main__" xml:id="x111">
     <Attributes>
-    <Attribute name="parent" idref="1111"/>
+    <Attribute name="parent" idref="x111"/>
     </Attributes>
 </Pickle>
 """
