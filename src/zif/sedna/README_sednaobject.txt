@@ -655,10 +655,11 @@ Now, we verify that the save persisted the modifications.
        <first xsi:type="xsd:string">Fred</first>
       </name>
      </contact>
-     <years xsi:type="xsd:int">3</years>
+     <years xsi:type="xsd:integer">3</years>
      <condition xsi:type="xsd:string">Fine</condition>
      <_cursor xsi:type="xsd:string">Bob</_cursor>
     </australia>
+
 
 Check to assure that it round-trips OK.
 
@@ -679,7 +680,7 @@ Check to assure that it round-trips OK.
 Cleanup.  We delete the previously-created document and close the connection.
 
     >>> for doc in ['testx_region']:
-    ...    rs = conn.execute(u'DROP DOCUMENT "%s"' % doc, pretty_print=True)
+    ...    rs = conn.execute('DROP DOCUMENT "%s"' % doc, pretty_print=True)
     >>> conn.commit()
     True
     >>> conn.close()

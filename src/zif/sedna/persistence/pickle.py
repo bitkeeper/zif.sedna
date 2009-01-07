@@ -11,8 +11,6 @@ import gzip
 from lxml.etree import Element, SubElement, tostring, fromstring, parse, \
     XMLSyntaxError, XMLParser, XPath
 from cStringIO import StringIO
-from persistent.interfaces import IPersistent
-from zope.interface import implements, providedBy
 from random import choice
 
 try:

@@ -104,23 +104,43 @@ class SednaXQuery(object):
         """
         if self._count is not None:
             return self._count
-        q = u'let $i := %s' % (self.path)
-        q += u' return <i><c>{count($i)}</c></i>'
-        s = self.cursor.execute(q, pretty_print=self.pretty_print)
-        f = objectify.fromstring(s.value)
-        self._count = int(f.c)
-        return self._count
+        #q = u'let $i := %s' % (self.path)
+        #q += u' return <i><c>{count($i)}</c></i>'
+        #s = self.cursor.execute(q, pretty_print=self.pretty_print)
+        #f = objectify.fromstring(s.value)
+        s = self.cursor.execute("count(%s)" % self.path)
+        #self._count = int(f.c)
+        count = self._count = int(s.value)
+        return count
 
-    def xpath(self,path):
+    def xpath(self, path, parser=None, pretty_print=None):
         """
         Send another query to the server for the current document.
+
+        Return a SednaXQuery object.
+
+        parser and pretty_print will default to the parser and
+        pretty_print settings from the calling object. Set those to False to
+        disable this behavior, or provide a parser and/or pretty_print setting.
+
+
         """
+        if not parser:
+            if parser is False:
+                parser = None
+            else:
+                parser = self.parser
+
+        if not pretty_print and not pretty_print is False:
+            pretty_print = self.pretty_print
+
         if path.startswith('/'):
             base = self.path.split('/')[0]
-            return SednaXQuery(self.cursor,base+path,self.pretty_print)
+            return SednaXQuery(self.cursor, base + path, parser,
+                pretty_print)
         else:
-            return SednaXQuery(self.cursor,self.path + '/' + path,
-               self.pretty_print)
+            return SednaXQuery(self.cursor, self.path + '/' + path,
+               parser, pretty_print)
 
     def _localKey(self,key):
         """

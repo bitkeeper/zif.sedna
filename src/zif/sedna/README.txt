@@ -23,9 +23,9 @@ the default login, 'SYSTEM' and passwd, 'MANAGER'
 
         $ se_sm test
 
-Change these if necessary to match your system.
-On \*nix you can also $ tailf [sedna-directory]/data/event.log to
-monitor what the Sedna server is doing.
+Change the following parameters if necessary to match your system.
+On \*nix you can $ tailf [sedna-directory]/data/event.log to monitor what the 
+Sedna server is doing.
 
     >>> login = 'SYSTEM'
     >>> passwd = 'MANAGER'
@@ -33,11 +33,9 @@ monitor what the Sedna server is doing.
     >>> port = 5050
     >>> host = 'localhost'
 
-Ordinarily, this statement will be "from zif.sedna import protocol"
-
     >>> from zif.sedna import protocol
 
-We open and close a connection:
+We can now open and close a connection:
 
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
     >>> conn.close()
@@ -53,8 +51,8 @@ If login fails, you get an OperationalError.
 
 
 Let's start with an xquery that does not need to access any documents. The
-result of a query is an iterator that may only be accessed once.  result.value
-empties that iterator into a single python unicode string. You may iterate the
+result of a query is a generator that may only be accessed once.  result.value
+empties that generator into a single python unicode string. You may iterate the
 result and hold it in a list, or use the items as they are generated.  Items
 in a result are python unicode strings, unless it makes sense for the result
 to be a boolean, e.g., updates, inserts, deletes. zif.sedna's protocol will
@@ -67,7 +65,7 @@ or rolled back before the connection is closed.
     >>> print(result.value)
     <z>1</z><z>2</z><z>3</z>
     >>> result.value
-    u''
+    ''
     >>> result = conn.execute(u'for $i in (1,2,3) return <z>{$i}</z>')
     >>> res = list(result)
     >>> print(res)
@@ -75,22 +73,30 @@ or rolled back before the connection is closed.
     >>> conn.commit()
     True
 
-Internally, Sedna stores documents and processes queries in utf-8. The
-zif.sedna protocol expects queries to be python unicode strings, which are
-converted to utf-8 for processing. Any query other than a python unicode string
-will raise a ProgrammingError.
+Internally, Sedna stores documents and processes queries in utf-8.  If you send
+queries that contain unicode text, the text will be converted to utf-8 for you,
+and the response will be returned as unicode as well.
 
     >>> result = conn.execute('for $i in (1,2,3) return <z>{$i}</z>')
-    Traceback (most recent call last):
-    ...
-    ProgrammingError: Expected unicode, got <type 'str'>.
+    >>> result.value
+    '<z>1</z><z>2</z><z>3</z>'
+
+    >>> result = conn.execute(u'for $i in (1,2,3) return <z>{$i}</z>')
+    >>> result.value
+    u'<z>1</z><z>2</z><z>3</z>'
+
+Assure data entering queries are either unicode, ascii, or utf-8. An encoding
+error will look like: 
+ 
+    DatabaseError: [352] SEDNA Message: ERROR SE4082
+    Bad query encoding
 
 Let's bulk load a file so we have some data to work with. Since the "region"
-folder is local to this module, a relative path will work to specify this file.
+folder is local to the module, we do some fancy stuff here to find the file.
 In practice, we will need to use an absolute path. If loading fails, it
 raises a DatabaseError.
 
-For the list of documents and collections in the current database, we use
+To obtain a list of documents and collections in the current database, we use
 connection.documents
 
     >>> conn = protocol.SednaProtocol(host,db,login,passwd,port)
@@ -150,7 +156,7 @@ the resulting output is nicely formatted.
     <asia><id_region>asi</id_region></asia>
 
 XQuery lets you get just part of the document. Note that 'doc' and 'document'
-are synonymous.
+are synonymous in Sedna XQueries.
 
     >>> data = conn.execute(u'doc("testx_region")//*[id_region="eur"]')
     >>> print(data.value)
@@ -257,14 +263,14 @@ Empty results return an empty string.
 
     >>> result = conn.execute(u'document("BS")//book[price>300]')
     >>> result.value
-    u''
+    ''
 
 Querying for an element that does not exist returns an empty result, not an
 exception.
 
     >>> result = conn.execute(u'document("BS")/BS/book[9]')
     >>> result.value
-    u''
+    ''
 
 Hmmm. Can we retrieve an item from a list based on a previous selection?
 Yes, we can.  This is interesting, since this means we can get back to this
@@ -300,7 +306,7 @@ Here's a query longer than 10240 bytes.  It will go through anyway.
     >>> result = conn.execute(
     ... u'document("BS")//book[price>300]'+' '*15000)
     >>> result.value
-    u''
+    ''
 
 Let's try an update
 
@@ -358,7 +364,7 @@ We have a <quality> element in the book. Let's delete it.
 Now, it's gone
 
     >>> data.value
-    u''
+    ''
 
 We rollback
 
@@ -433,7 +439,7 @@ syntax error, so will be caught right when the query is sent.
     ... except conn.DatabaseError,e:
     ...     print(e)
     [3] SEDNA Message: ERROR XPST0003
-        It is a static error if an expression is not a valid instance of the grammar defined in A.1 EBNF.
+    It is a static error if an expression is not a valid instance of the grammar defined in A.1 EBNF.
     Details: syntax error at token: 'world', line: 1
 
 Now for errors in 'valid' but troublesome queries, errors that happen while the
@@ -453,7 +459,7 @@ Here's a query that fails at run-time.
     Traceback (most recent call last):
     ...
     DatabaseError: [112] SEDNA Message: ERROR FORG0001
-        Invalid value for cast/constructor.
+    Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
 
 We get an error, but this is not as helpful as it can be.  We set debugOn to
@@ -472,7 +478,7 @@ that is maybe helpful.
     DatabaseError: PPCast : 1
     PPFunCall : 1 : http://www.w3.org/2005/xquery-local-functions:f
     [112] SEDNA Message: ERROR FORG0001
-        Invalid value for cast/constructor.
+    Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
 
     >>> conn.debugOff()

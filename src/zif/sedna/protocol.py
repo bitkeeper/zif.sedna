@@ -122,7 +122,7 @@ def normalizeMessage(message):
     message = message.decode('utf-8')
     n = []
     for k in message.split('\n'):
-        n.append(k.rstrip().replace('\t','    '))
+        n.append(k.strip().replace('\t','    '))
     return u'\n'.join(n)
 
 def escapeAndQuote(aDict):
@@ -234,11 +234,12 @@ class Result(object):
 
     """
 
-    def __init__(self,conn):
+    def __init__(self,conn, returnUnicode):
         self.conn = conn
         self._time = None
         self.more = True
         self.item = '_DUMMY_'
+        self.returnUnicode = returnUnicode
 
     def __iter__(self):
         return self
@@ -246,7 +247,7 @@ class Result(object):
     def getTime(self):
         if not self._time:
             time = self.conn._send_string(token=SEDNA_SHOW_TIME)
-            self._time = time.decode('utf-8')
+            self._time = time
         return self._time
 
     time = property(getTime)
@@ -260,10 +261,13 @@ class Result(object):
         if currItem is None:
             raise StopIteration
         else:
-            return currItem.decode('utf-8')
+            if self.returnUnicode:
+                return currItem.decode('utf-8')
+            else:
+                return currItem
 
     def _get_value(self):
-        return u''.join(list(self))
+        return ''.join(list(self))
 
     value = property(_get_value)
 
@@ -329,6 +333,7 @@ class SednaProtocol(object):
     _inTransaction = False
     ermsgs = None
     cursorFactory = BasicCursor
+    returnUnicode = True
 
     # error exposition (PEP-249)
     Error = Error
@@ -346,7 +351,7 @@ class SednaProtocol(object):
 
     # queries
 
-    def execute(self,query,format=0,pretty_print=False):
+    def execute(self, query, format=0, pretty_print=False):
         """
         Send query to the Sedna server.
 
@@ -361,8 +366,11 @@ class SednaProtocol(object):
         self._resetBuffer()
         if isinstance(query,unicode):
             query = query.encode('utf-8')
+            self.returnUnicode = True
         else:
-            raise ProgrammingError("Expected unicode, got %s." % type(query))
+            self.returnUnicode = False
+        #else:
+        #    raise ProgrammingError("Expected unicode, got %s." % type(query))
         if not pretty_print:
             noindent = 'declare option se:output "indent=no";'
             query = '%s\n%s' % (noindent,query)
@@ -398,8 +406,9 @@ class SednaProtocol(object):
         """
         # always acquire instance lock on begin.
         # the lock is released on error or when transaction ends.
-        self.lock.acquire()
-        self._send_string(token=SEDNA_BEGIN_TRANSACTION)
+        if not self.inTransaction:
+            self.lock.acquire()
+            self._send_string(token=SEDNA_BEGIN_TRANSACTION)
 
     beginTransaction = begin
 
@@ -482,6 +491,10 @@ class SednaProtocol(object):
             s += u' "%s"' % collection_name
         return self.execute(s,pretty_print=True)
 
+    def loadModule(self,filename):
+        s = u'LOAD OR REPLACE MODULE "%s"' % (filename)
+        return self.execute(s,pretty_print=True)
+
 # database metadata sugar
 
     @property
@@ -503,6 +516,15 @@ class SednaProtocol(object):
     @property
     def schema(self):
         return self.execute(u'doc("$schema")').value
+
+    @property
+    def version(self):
+        s = self.execute(u'doc("$version")').value
+        d = {}
+        v = ET.XML(s)
+        d['version'] = v.get('version')
+        d['build'] = v.get('build')
+        return d
 
     def _listMetadata(self,loc):
         s = self.execute(u'doc("%s")' % loc)
@@ -538,8 +560,8 @@ class SednaProtocol(object):
 
     def setReadonly(self, bool):
         """
-        connection.transactionReadonly(True)
-        connection.transactionReadonly(False)
+        connection.setReadonly(True)
+        connection.setReadonly(False)
         """
         if bool:
             val = READONLY_TRANSACTION
@@ -617,9 +639,17 @@ class SednaProtocol(object):
         if trace:
             self.traceOn()
         self._send_string(token=SEDNA_START_UP)
-        self.lock = _threading.Lock()
+        self._lock = None
 
 # the rest of the module is non-public methods
+
+# locking mechanism
+
+    def get_lock(self):
+        if self._lock is None:
+            self._lock = _threading.Lock()
+        return self._lock
+    lock = property(get_lock)
 
 # socket opening
 
@@ -862,7 +892,7 @@ class SednaProtocol(object):
 # queries - receivers
 
     def _querySucceeded(self,msg):
-        self.result = Result(self)
+        self.result = Result(self,self.returnUnicode)
         # sedna immediately sends the first part of the result, so get it.
         self._get_response()
         return self.result
