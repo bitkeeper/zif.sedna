@@ -13,17 +13,7 @@ from Kamaelia.Chassis.Graphline import Graphline
 from Kamaelia.Util.OneShot import OneShot
 from Axon.CoordinatingAssistantTracker import coordinatingassistanttracker
 
-from lxml.etree import fromstring, tostring
-
-#from Axon.AdaptiveCommsComponent import AdaptiveCommsComponent
-#from Kamaelia.Util.Clock import CheapAndCheerfulClock
-#from Kamaelia.IPC import notify
-#from Kamaelia.Util.PassThrough import PassThrough
-
 import zif.sedna.msgcodes as se
-
-#class cursorAvailable(notify):
-#    pass
 
 debug = False
 
@@ -36,7 +26,6 @@ default_config = {
     "tcpdelay":0,
     "sednaformat":0
     }
-
 
 config = default_config
 config_used = "DEFAULT_INTERNAL"
