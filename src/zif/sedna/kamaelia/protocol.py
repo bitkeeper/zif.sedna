@@ -871,7 +871,7 @@ class AutoCommit(component):
     service = "SEDNA_CURSORS"
     end = CommitTransaction
     graphline = None
-    
+    terminable = True
     def main(self):
         while 1:
             self.pause()
@@ -908,7 +908,8 @@ class AutoCommit(component):
                     ('release','signal'):('self','signal'),
                     })
         self.link((graphline,"outbox"),(self, "outbox"), passthrough=2)
-        self.link((graphline,"signal"),(self, "signal"), passthrough=2)
+        if self.terminable:
+            self.link((graphline,"signal"),(self, "signal"), passthrough=2)
         graphline.activate()
 
 
@@ -1103,5 +1104,5 @@ if __name__ == '__main__':
     starttestcursorserver()
     Pipeline(ConsoleReader(">>> ", ""),
     SednaConsoleInput(),
-    AutoCommit(service="SEDNA_CURSORS"),
+    AutoCommit(service="SEDNA_CURSORS",terminable=False),
     ConsoleEchoer()).run()
