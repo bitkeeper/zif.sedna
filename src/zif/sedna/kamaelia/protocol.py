@@ -1,5 +1,6 @@
 from struct import pack, unpack, calcsize
 from datetime import datetime
+import sys
 
 import Kamaelia.Util.Chunkifier
 from Axon.Component import component
@@ -14,6 +15,8 @@ from Kamaelia.Util.OneShot import OneShot
 from Axon.CoordinatingAssistantTracker import coordinatingassistanttracker
 
 import zif.sedna.msgcodes as se
+
+#errfile = sys.stderr
 
 debug = False
 
@@ -136,6 +139,7 @@ class AuthenticatedSednaCursor(component):
     Outboxes = {"outbox": "Sedna response messages out",
                 "signal": "Signal Messages",
                 "connectionsignal":"IPC to connection",
+                "pool":"self to pool when ready",
                 "request": "requests to Sedna",
                 }
     connected = False
@@ -152,6 +156,8 @@ class AuthenticatedSednaCursor(component):
     shutdownMsg = None
     executecodes = set([se.SEDNA_EXECUTE, se.SEDNA_EXECUTE_LONG])
     responseheader = None
+    # pool may be a (component, inbox) tuple
+    pool = None
 
     def request(self,msg):
         if not isinstance(msg, SednaRequest):
@@ -217,7 +223,7 @@ class AuthenticatedSednaCursor(component):
     
                 self.responseheader = None
                 if debug:
-                    print se.codes[token]
+                    print  >> sys.stderr, se.codes[token]
                 if token in self.handlers:
                     # we can handle this locally
                     self.handlers[token](self, msg)
@@ -264,7 +270,9 @@ class AuthenticatedSednaCursor(component):
         connection.activate()
         # send start-up
         self.request(SednaRequest(code=se.SEDNA_START_UP))
+        self.pause()
         yield 1
+        #yield 1
         # Now we loop.
         while not self.shutdown():
             self.pause()
@@ -332,7 +340,13 @@ class AuthenticatedSednaCursor(component):
     
     def authenticationOK(self, msg):
         self.authenticated = True
-        self.info(u"Authentication OK.")
+        #self.info(u"Authentication OK.")
+        if self.pool:
+            # Ready.  Take a dip in the pool. :)
+            print >> sys.stdout, "Sedna connection: %s@%s:%s." % (self.db,
+                            self.host,self.port)
+            self.link((self,"pool"),(self.pool[0],self.pool[1]))
+            self.send(self,"pool")
     
     def authenticationFailed(self, msg):
         self.closeConnectionOK(msg)
@@ -945,13 +959,13 @@ class SednaConsoleInput(PureTransformer):
                 return ClientError("Invalid console command")
             request = SednaRequest(code, message)
             if debug:
-                print se.codes[code]
+                print  >> sys.stderr, se.codes[code]
             return request
         elif msg:
             code = se.SEDNA_EXECUTE
             request = SednaRequest(code, msg)
             if debug:
-                print se.codes[code]
+                print  >> sys.stderr, se.codes[code]
             return request
 
 
@@ -980,11 +994,13 @@ class CursorServer(component):
     def main(self):
         self.spareconnections = []
         self.inuse = []
+        yield 1
         self.assurespares()
-        
+        yield 1
         while 1:
             try:
-                self.assurespares()
+                #self.assurespares()
+                #yield 1
                 while not self.anyReady():
                     self.pause()
                     yield 1
@@ -994,7 +1010,8 @@ class CursorServer(component):
                     if isinstance(item, self.factory):
                         # A cursor has been returned
                         if len(self.spareconnections) < self.maxspares:
-                            self.inuse.remove(item)
+                            if item in self.inuse:
+                                self.inuse.remove(item)
                             self.spareconnections.append(item)
                         else:
                             self.inuse.remove(item)
@@ -1004,6 +1021,7 @@ class CursorServer(component):
                         # for a cursor. 
                         dest,inbox = item
                         while not len(self.spareconnections):
+                            self.assurespares()
                             self.pause()
                             yield 1
                         self.sendconnection(dest,inbox)
@@ -1065,9 +1083,9 @@ class CursorServer(component):
     
     def assurespares(self):
         """
-        Make spare connections up to minspares and/or maxconnections.
+        Make a spare connection if needed.
         """
-        while ((len(self.inuse) + 
+        if ((len(self.inuse) + 
                len(self.spareconnections) < self.maxconnections)
          and (len(self.spareconnections) < self.minspares)):
             self.createconnection()
@@ -1086,10 +1104,11 @@ class CursorServer(component):
     def createconnection(self):
         conn = self.factory(host=self.host,
             db=self.db, login=self.login, passwd=self.passwd, 
-            port=self.port, delay=self.delay, format=self.format)
-        self.addChildren(conn)
-        self.spareconnections.append(conn)
-        self.link((conn,"signal"),(self,"cursorcontrol"))
+            port=self.port, delay=self.delay, format=self.format, 
+            pool=(self,"inbox"))
+        #self.addChildren(conn)
+        #self.spareconnections.append(conn)
+        #self.link((conn,"signal"),(self,"cursorcontrol"))
         conn.activate()
 
 def starttestcursorserver():        
