@@ -347,6 +347,8 @@ class AuthenticatedSednaCursor(component):
                             self.host,self.port)
             self.link((self,"pool"),(self.pool[0],self.pool[1]))
             self.send(self,"pool")
+            self.unlink(thelinkage="pool")
+            self.pool = None
     
     def authenticationFailed(self, msg):
         self.closeConnectionOK(msg)
@@ -448,6 +450,7 @@ class CursorProcess(component):
     
     def unlinkcursor(self):
         self.unlink(self.cursor)
+        #self.cursor = None
         
     def checkControl(self):
         """
@@ -990,7 +993,7 @@ class CursorServer(component):
     delay=config['tcpdelay']
     format=config['sednaformat']
     shutdownMsg = None 
-    
+    waitq = []
     def main(self):
         self.spareconnections = []
         self.inuse = []
@@ -1009,22 +1012,33 @@ class CursorServer(component):
                     item = self.recv("inbox")
                     if isinstance(item, self.factory):
                         # A cursor has been returned
-                        if len(self.spareconnections) < self.maxspares:
+                        if self.waitq:
+                            #print "Q: %s" % len(self.waitq)
+                            self.spareconnections.append(item)
+                            dest,inbox = self.waitq.pop(0)
+                            self.sendconnection(dest,inbox)
+                        elif len(self.spareconnections) < self.maxspares:
                             if item in self.inuse:
                                 self.inuse.remove(item)
                             self.spareconnections.append(item)
                         else:
-                            self.inuse.remove(item)
+                            if item in self.inuse:
+                                self.inuse.remove(item)
                             self.closecursor(item)
                     elif isinstance(item,tuple):
                         # This is a (destination, inboxname) request
                         # for a cursor. 
+                        self.assurespares()
                         dest,inbox = item
-                        while not len(self.spareconnections):
+                        if len(self.spareconnections):
+                            self.sendconnection(dest,inbox)
+                        else:
+                            # reque in waitq
                             self.assurespares()
+                            self.waitq.append((dest, inbox))
                             self.pause()
                             yield 1
-                        self.sendconnection(dest,inbox)
+                            
                 while self.dataReady("control"):
                     rsp = self.recv("control")
                     if isinstance(rsp, cursorAvailable):
@@ -1085,10 +1099,13 @@ class CursorServer(component):
         """
         Make a spare connection if needed.
         """
-        if ((len(self.inuse) + 
-               len(self.spareconnections) < self.maxconnections)
-         and (len(self.spareconnections) < self.minspares)):
+        if (len(self.inuse) + 
+               len(self.spareconnections) < self.maxconnections):
+         #and (
+        #    len(self.spareconnections) < self.minspares):
             self.createconnection()
+        #else:
+            #raise Exception("Cannot create connection.") 
         
     def sendconnection(self,dest,inbox):
         """ 
