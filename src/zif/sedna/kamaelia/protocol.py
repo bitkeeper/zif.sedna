@@ -1014,8 +1014,8 @@ class CursorServer(component):
                         # A cursor has been returned
                         if self.waitq:
                             #print "Q: %s" % len(self.waitq)
-                            self.spareconnections.append(item)
                             dest,inbox = self.waitq.pop(0)
+                            self.spareconnections.append(item)
                             self.sendconnection(dest,inbox)
                         elif len(self.spareconnections) < self.maxspares:
                             if item in self.inuse:
@@ -1099,13 +1099,11 @@ class CursorServer(component):
         """
         Make a spare connection if needed.
         """
-        if (len(self.inuse) + 
-               len(self.spareconnections) < self.maxconnections):
-         #and (
-        #    len(self.spareconnections) < self.minspares):
+        if ((len(self.inuse) + 
+               len(self.spareconnections) < self.maxconnections)
+        and (
+            len(self.spareconnections) < self.minspares)):
             self.createconnection()
-        #else:
-            #raise Exception("Cannot create connection.") 
         
     def sendconnection(self,dest,inbox):
         """ 
