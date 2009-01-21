@@ -343,7 +343,8 @@ class AuthenticatedSednaCursor(component):
         #self.info(u"Authentication OK.")
         if self.pool:
             # Ready.  Take a dip in the pool. :)
-            print >> sys.stdout, "Sedna connection: %s@%s:%s." % (self.db,
+            if debug:
+                print >> sys.stdout, "Sedna connection: %s@%s:%s." % (self.db,
                             self.host,self.port)
             self.link((self,"pool"),(self.pool[0],self.pool[1]))
             self.send(self,"pool")
@@ -602,6 +603,9 @@ class CursorProcess(component):
                     yield 1
 
         except Halt:
+            if debug:
+                cn = self.__class__.__name__
+                print  >> sys.stderr , "end of CursorProcess %s" % cn
             if self.cursor:
                 self.releasecursor()
             if self.shutdownMsg:
@@ -676,6 +680,8 @@ class Execute(CursorProcess):
         code = item.code
         msg = item.msg
         if code in self.handlers:
+            if debug:
+                print  >> sys.stderr, se.codes[code]
             self.handlers[code](self,msg)
         else:
             self.cursorFinished = True
@@ -710,6 +716,8 @@ class Execute(CursorProcess):
     def updatesucceeded(self,msg):
         self.loadFromBulk = False
         self.cursorFinished = True
+        #hmmm. gotta send something out
+        self.send('OK', "response")
         
     def bulkloadfilename(self,msg):
         filename =  msg
