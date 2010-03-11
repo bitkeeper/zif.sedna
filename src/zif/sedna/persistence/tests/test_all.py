@@ -7,7 +7,7 @@ writes the output to TESTS.OUT-{pyversion}
 
 import os,sys,string
 from time import time
-import funcs
+#from . import funcs
 from funcs import unlink, touch
 import zif.sedna.persistence.pickle as xml_pickle
 
@@ -53,7 +53,7 @@ def echof(filename,line):
     f.write(line+'\n')
 
 def pechof(filename,line):
-    print line
+    print(line)
     if os.path.isfile(filename):
         f = open(filename,'a')
     else:
@@ -166,7 +166,7 @@ def check_harness():
             sys.exit(1)
 
     # known "fail" tests
-    print "***************** INGORE EXCEPTIONS BETWEEN THESE LINES *****************"	
+    print("***************** INGORE EXCEPTIONS BETWEEN THESE LINES *****************")	
     for bad in ['test_fail_exit.py','test_fail_raise_1.py',
                 'test_fail_raise_2.py','test_fail_raise_3.py']:
         r = os.system('%s %s %s' % (py,bad,outstr))
@@ -174,7 +174,7 @@ def check_harness():
             pechof(tout,"****** Harness test failed ******")
             sys.exit(1)
 
-    print "***************** INGORE EXCEPTIONS BETWEEN THESE LINES *****************"
+    print("***************** INGORE EXCEPTIONS BETWEEN THESE LINES *****************")
     
     unlink('harness_check.out')
 
@@ -190,7 +190,7 @@ pechof(tout,"Sanity check: OK")
 t1 = time()
 
 for test in tests:
-    print "Running %s" % test
+    print("Running %s" % test)
     echof(tout,"** %s %s sedna pickle **" % (py,test))
     r = os.system("%s %s >> %s"%(py,test,tout))
     if r != 0:

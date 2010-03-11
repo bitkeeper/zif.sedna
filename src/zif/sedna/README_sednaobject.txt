@@ -76,7 +76,7 @@ Get the length of the result:
 
 Print the result in one shot.  To obtain this into a variable, use str().
 
-    >>> print(z)
+    >>> print(z) #doctest: +NORMALIZE_WHITESPACE
     <africa>
      <id_region>afr</id_region>
     </africa>
@@ -98,9 +98,9 @@ Print the result in one shot.  To obtain this into a variable, use str().
 
 Access by index:
 
-    >>> z[0]
+    >>> z[0] #doctest: +NORMALIZE_WHITESPACE
     u'<africa>\n <id_region>afr</id_region>\n</africa>'
-    >>> z[-1]
+    >>> z[-1] #doctest: +NORMALIZE_WHITESPACE
     u'<samerica>\n <id_region>sam</id_region>\n</samerica>'
     >>> z[9]
     Traceback (most recent call last):
@@ -137,7 +137,7 @@ If we use lxml and parse to an Element, "in"  and "index" still work.
 
 Slice:
 
-    >>> for item in z[2:4]:
+    >>> for item in z[2:4]: #doctest: +NORMALIZE_WHITESPACE
     ...     print(item)
     <australia>
      <id_region>aus</id_region>
@@ -146,7 +146,7 @@ Slice:
     <europe>
      <id_region>eur</id_region>
     </europe>
-    >>> for item in z[4:]:
+    >>> for item in z[4:]: #doctest: +NORMALIZE_WHITESPACE
     ...     print(item)
     <namerica>
      <id_region>nam</id_region>
@@ -155,7 +155,7 @@ Slice:
     <samerica>
      <id_region>sam</id_region>
     </samerica>
-    >>> for item in z[:2]:
+    >>> for item in z[:2]: #doctest: +NORMALIZE_WHITESPACE
     ...     print(item)
     <africa>
      <id_region>afr</id_region>
@@ -172,7 +172,7 @@ server while iterating.  Provide an XQuery with a "where" clause if you want
 the server to do the "if" for you.
 
     >>> y = [item for item in z if 'samerica' in item]
-    >>> print(y[0].lstrip())
+    >>> print(y[0].lstrip()) #doctest: +NORMALIZE_WHITESPACE
     <samerica>
      <id_region>sam</id_region>
     </samerica>
@@ -185,7 +185,7 @@ Get the index of an item:
 
 Enumerate:
     >>> s = [(idx,value) for idx,value in enumerate(z)]
-    >>> s[-1]
+    >>> s[-1] #doctest: +NORMALIZE_WHITESPACE
     (5, u'\n<samerica>\n <id_region>sam</id_region>\n</samerica>')
 
 This abstraction uses 0-based indexes.  XQuery uses 1-based indexes.  You can
@@ -200,7 +200,7 @@ xenumerate similarly provides server indices.  Note that the semantics are a
 bit different, since this is a method, not a built-in function.
 
     >>> s = [(idx,value) for idx,value in z.xenumerate()]
-    >>> s[-1]
+    >>> s[-1] #doctest: +NORMALIZE_WHITESPACE
     (6, u'\n<samerica>\n <id_region>sam</id_region>\n</samerica>')
 
 You are not restricted to pure XPath expressions; most XQuery expressions that
@@ -284,7 +284,7 @@ Len provides the number of child elements.
 Obtain the element in one shot:
 
     >>> k = str(z)
-    >>> print(k)
+    >>> print(k) #doctest: +NORMALIZE_WHITESPACE
     <regions>
      <africa>
       <id_region>afr</id_region>
@@ -309,13 +309,13 @@ Obtain the element in one shot:
 Item access works as with SednaXQuery, except you get the items within the
 Element instead of the items of the list returned by the query:
 
-    >>> z[0]
+    >>> z[0] #doctest: +NORMALIZE_WHITESPACE
     u'<africa>\n <id_region>afr</id_region>\n</africa>'
     >>> z[-1] in z
     True
     >>> z[0] in z
     True
-    >>> z[3:4]
+    >>> z[3:4] #doctest: +NORMALIZE_WHITESPACE
     [u'<europe>\n <id_region>eur</id_region>\n</europe>']
     >>> z.xindex(z[-2])
     5
@@ -356,7 +356,7 @@ entire item with an update.
 Check that z also has this value. Remember that z was instanciated with
 pretty_print=True.
 
-    >>> print(z[0])
+    >>> print(z[0]) #doctest: +NORMALIZE_WHITESPACE
     <africa>
      <id_region>afr</id_region>
      <v attr="val">txt</v>
@@ -369,7 +369,7 @@ database iterator at a time for a cursor.
    >>> t = fromstring(z[1])
    >>> t.xpath('id_region')[0].text = 'asia'
    >>> z[1] = t
-   >>> print(z[1])
+   >>> print(z[1]) #doctest: +NORMALIZE_WHITESPACE
    <asia>
     <id_region>asia</id_region>
    </asia>
@@ -377,7 +377,7 @@ database iterator at a time for a cursor.
    ...     t = fromstring(item)
    ...     t.xpath('id_region')[0].tag = 'region_id'
    ...     z[idx] = t
-   >>> print(z[2])
+   >>> print(z[2]) #doctest: +NORMALIZE_WHITESPACE
    <australia>
     <region_id>aus</region_id>
    </australia>
@@ -643,7 +643,7 @@ Now, we verify that the save persisted the modifications.
 
     >>> q = q.replace('barbie','two')
     >>> t = SednaContainer(curs,q, pretty_print=True)
-    >>> print(t)
+    >>> print(t) #doctest: +NORMALIZE_WHITESPACE
     <australia xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
      <region_id xsi:type="xsd:string">aus</region_id>
      <city xsi:type="xsd:string">Canberra</city>

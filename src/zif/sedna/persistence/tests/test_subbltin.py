@@ -27,9 +27,15 @@ class dcombo(dict):
 
 # interesting, Python won't let me define extra args for __init__ ...
 # (this leads to the note in setCoreData())
+
+# note 20090201 jmw:
+# object.__init__(args) just ignores the arguments anyway.
+# so, e.g., tuple.__init__( below doesn't do anything useful.
+ 
 class _tcombo(tuple):
-    def __init__(self,inittup):
-        tuple.__init__(self,inittup)
+    pass
+    #def __init__(self,inittup):
+    #    tuple.__init__(self,inittup)
 
 def tcombo(inittup,a,b):
     t = _tcombo(inittup)
@@ -39,8 +45,9 @@ def tcombo(inittup,a,b):
 
 # ditto for int
 class _icombo(int):
-    def __init__(self,initi):
-        int.__init__(self,initi)
+    pass
+#    def __init__(self,initi):
+#        int.__init__(self,initi)
 
 def icombo(initi,a,b):
     i = _fcombo(initi)
@@ -50,8 +57,9 @@ def icombo(initi,a,b):
 
 # ditto for float
 class _fcombo(float):
-    def __init__(self,initf):
-        float.__init__(self,initf)
+    pass
+#    def __init__(self,initf):
+#        float.__init__(self,initf)
 
 def fcombo(initf,a,b):
     f = _fcombo(initf)
@@ -61,8 +69,9 @@ def fcombo(initf,a,b):
 
 # ditto for complex
 class _ccombo(complex):
-    def __init__(self,initc):
-        complex.__init__(self,initc)
+    pass
+#    def __init__(self,initc):
+#        complex.__init__(self,initc)
 
 def ccombo(initc,a,b):
     c = _ccombo(initc)
@@ -72,8 +81,9 @@ def ccombo(initc,a,b):
 
 # ditto for string
 class _scombo(str):
-    def __init__(self,inits):
-        str.__init__(self,inits)
+    pass
+#    def __init__(self,inits):
+#        str.__init__(self,inits)
 
 def scombo(inits,a,b):
     s = _scombo(inits)
@@ -83,8 +93,9 @@ def scombo(inits,a,b):
 
 # ditto for unicode
 class _ucombo(unicode):
-    def __init__(self,initu):
-        unicode.__init__(self,initu)
+    pass
+#    def __init__(self,initu):
+#        unicode.__init__(self,initu)
 
 def ucombo(initu,a,b):
     s = _ucombo(initu)
@@ -180,7 +191,7 @@ x.a = ccombo(234+567j,1,2)
 x.a.zz = 10
 #print x.a, x.a.a, x.a.b, x.a.zz
 s = xml_pickle.dumps(x)
-#print s
+print s
 g = xml_pickle.loads(s)
 #print g.a, g.a.a, g.a.b, g.a.zz
 check_combo(x,g)

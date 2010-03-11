@@ -52,10 +52,10 @@ import socket
 from struct import pack, unpack, calcsize
 import time
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+
+from io import StringIO
+
+#    from StringIO import StringIO
 
 try:
     import threading as _threading
@@ -83,10 +83,10 @@ except ImportError:
 'zif.sedna protocol wants an elementtree implementation for some functions.')
 
 # Sedna token constants
-from msgcodes import *
+from zif.sedna.msgcodes import *
 
 # standard errors from PEP-249
-from dbapiexceptions import Error, Warning, InterfaceError, DatabaseError,\
+from zif.sedna.dbapiexceptions import Error, Warning, InterfaceError, DatabaseError,\
 InternalError, OperationalError, ProgrammingError, IntegrityError,\
 DataError, NotSupportedError
 
@@ -123,7 +123,7 @@ def normalizeMessage(message):
     n = []
     for k in message.split('\n'):
         n.append(k.strip().replace('\t','    '))
-    return u'\n'.join(n)
+    return '\n'.join(n)
 
 def escapeAndQuote(aDict):
     """
@@ -465,7 +465,7 @@ class SednaProtocol(object):
         if not isinstance(text,unicode):
             text = ET.tostring(ET.XML(text))
         self._inputBuffer = StringIO(text)
-        s = u'LOAD STDIN "%s"' % document_name
+        s = 'LOAD STDIN "%s"' % document_name
         if collection_name:
             s += ' "%s"' % collection_name
         try:
@@ -486,13 +486,13 @@ class SednaProtocol(object):
         if collection_name is provided, document will go in that
         collection.
         """
-        s = u'LOAD "%s" "%s"' % (filename, document_name)
+        s = 'LOAD "%s" "%s"' % (filename, document_name)
         if collection_name:
-            s += u' "%s"' % collection_name
+            s += ' "%s"' % collection_name
         return self.execute(s,pretty_print=True)
 
     def loadModule(self,filename):
-        s = u'LOAD OR REPLACE MODULE "%s"' % (filename)
+        s = 'LOAD OR REPLACE MODULE "%s"' % (filename)
         return self.execute(s,pretty_print=True)
 
 # database metadata sugar
@@ -515,11 +515,11 @@ class SednaProtocol(object):
 
     @property
     def schema(self):
-        return self.execute(u'doc("$schema")').value
+        return self.execute('doc("$schema")').value
 
     @property
     def version(self):
-        s = self.execute(u'doc("$version")').value
+        s = self.execute('doc("$version")').value
         d = {}
         v = ET.XML(s)
         d['version'] = v.get('version')
@@ -527,7 +527,7 @@ class SednaProtocol(object):
         return d
 
     def _listMetadata(self,loc):
-        s = self.execute(u'doc("%s")' % loc)
+        s = self.execute('doc("%s")' % loc)
         theList = []
         z = s.value
         t = ET.XML(z)
@@ -537,16 +537,16 @@ class SednaProtocol(object):
         return theList
 
     def getSchema(self,doc_or_collection_name):
-        return self.execute(u'doc("$schema_%s")' % doc_or_collection_name).value
+        return self.execute('doc("$schema_%s")' % doc_or_collection_name).value
 
     def getDocumentStats(self,doc_name):
-        return self.execute(u'doc("$document_%s")' % doc_name).value
+        return self.execute('doc("$document_%s")' % doc_name).value
 
     def getCollectionStats(self,collection_name):
-        return self.execute(u'doc("$collection_%s")' % collection_name).value
+        return self.execute('doc("$collection_%s")' % collection_name).value
 
     def collectionDocuments(self,collection_name):
-        t = u"document('$documents')/documents/collection[@name='%s']/document"
+        t = "document('$documents')/documents/collection[@name='%s']/document"
         st = t % collection_name
         res = self.execute(st)
         theList = []
@@ -656,15 +656,15 @@ class SednaProtocol(object):
     def _openSocket(self,host,port):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error,e:
-            raise InterfaceError(u"Could not create socket: %s" % e)
+        except socket.error(e):
+            raise InterfaceError("Could not create socket: %s" % e)
         try:
             self.socket.connect((host,port))
-        except socket.error,e:
+        except socket.error(e):
             if self.socket:
                 self.socket.close()
             raise InterfaceError(
-                u'Server connection failed. Is Sedna server running? %s' % e)
+                'Server connection failed. Is Sedna server running? %s' % e)
         if self.socket:
             # found this on the net,  It's supposed to be faster than default?
             self.socket.setsockopt(socket.SOL_TCP,socket.TCP_NODELAY,0)
@@ -696,7 +696,7 @@ class SednaProtocol(object):
         # just a bit of sanity.  data at this point should be a
         # utf-8 encoded string
         if not isinstance(data,str):
-            raise InterfaceError (u"Expected string, got %s." % data)
+            raise InterfaceError ("Expected string, got %s." % data)
         if token in (SEDNA_EXECUTE, SEDNA_EXECUTE_LONG):
             self.result = None
             datalen = len(data)
@@ -715,7 +715,7 @@ class SednaProtocol(object):
             # request with the byte indicating the desired output format
             data = pack('!b',format) + zString(data)
         elif len(data)+self.prefixLength > self.maxDataLength:
-            raise InterfaceError(u"Message is too long.")
+            raise InterfaceError("Message is too long.")
         self._sendSocketData(pack(self.headerFormat,int(token),len(data)
             ) + data)
 
@@ -793,7 +793,7 @@ class SednaProtocol(object):
         while totalsent < datalen:
             try:
                 sent = self.socket.send(data[totalsent:])
-            except socket.error,e:
+            except socket.error(e):
                 raise InterfaceError('Error writing to socket: %s' % e)
             if sent == 0:
                 raise InterfaceError("Socket connection broken.")
@@ -811,7 +811,7 @@ class SednaProtocol(object):
                 time.sleep(0)
             try:
                 data = self.socket.recv(length-bufferLen)
-            except socket.error,e:
+            except socket.error(e):
                 raise InterfaceError('Error reading from socket: %s' % e)
             self.receiveBuffer.append(data)
             bufferLen += len(data)

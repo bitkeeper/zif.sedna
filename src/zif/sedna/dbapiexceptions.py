@@ -1,11 +1,11 @@
 # standard error declarations from PEP-249
 
-import exceptions
+#import exceptions
 
-class Error(exceptions.StandardError):
+class Error(Exception):
     pass
 
-class Warning(exceptions.StandardError):
+class Warning(Exception):
     pass
 
 class InterfaceError(Error):

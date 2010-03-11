@@ -44,9 +44,10 @@ If login fails, you get an OperationalError.
 
     >>> bad_passwd = 'hello'
     >>> conn = protocol.SednaProtocol(host,db,login,bad_passwd,port)
+    ... #doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    OperationalError: [226] SEDNA Message: ERROR SE3053
+    OperationalError: [...] SEDNA Message: ERROR SE3053
     Authentication failed.
 
 
@@ -119,10 +120,10 @@ Equivalently, this could have been written:
 
 If we try to load this file again with the same name, we get an error.
 
-    >>> z = conn.loadFile(filepath,'testx_region')
+    >>> z = conn.loadFile(filepath,'testx_region')#doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    DatabaseError: [163] SEDNA Message: ERROR SE2001
+    DatabaseError: [...] SEDNA Message: ERROR SE2001
     Document with the same name already exists.
     Details: testx_region
 
@@ -130,7 +131,7 @@ Let's see what's in the document. Note that we set pretty_print to True so that
 the resulting output is nicely formatted.
 
     >>> result = conn.execute(u'doc("testx_region")/*/*', pretty_print=True)
-    >>> print(result.value)
+    >>> print(result.value) #doctest: +NORMALIZE_WHITESPACE
     <africa>
      <id_region>afr</id_region>
     </africa>
@@ -210,7 +211,7 @@ strip() the individual results to remove trailing newline characters.
 
     >>> result = conn.execute(u'document("BS")//book[price>30]',
     ...     pretty_print=True)
-    >>> for item in result:
+    >>> for item in result: #doctest: +NORMALIZE_WHITESPACE
     ...     print(item.strip())
     <book category="WEB">
      <title lang="en">XQuery Kick Start</title>
@@ -232,7 +233,7 @@ strip() the individual results to remove trailing newline characters.
 We can get a book by its index. XQuery indices are 1 based; 2 means second book.
 
     >>> result = conn.execute(u'document("BS")/BS/book[2]', pretty_print=True)
-    >>> print(result.value)
+    >>> print(result.value) #doctest: +NORMALIZE_WHITESPACE
     <book category="CHILDREN">
      <title lang="en">Harry Potter</title>
      <author>J K. Rowling</author>
@@ -243,7 +244,7 @@ We can get a book by its index. XQuery indices are 1 based; 2 means second book.
 We can get the last book.
 
     >>> result = conn.execute(u'doc("BS")/BS/book[last()]', pretty_print=True)
-    >>> print(result.value)
+    >>> print(result.value) #doctest: +NORMALIZE_WHITESPACE
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -281,7 +282,7 @@ Let's get the second book with a price greater than 30.
     >>> prevQuery = u'document("BS")//book[price>30]'
     >>> query = prevQuery + '[2]'
     >>> result = conn.execute(query, pretty_print=True)
-    >>> print(result.value)
+    >>> print(result.value) #doctest: +NORMALIZE_WHITESPACE
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -296,7 +297,8 @@ Let's see how long that took.
 
 Sorry, can't show you the value here. You will have to try it yourself.
 
-    >>> z.endswith('secs')
+    >>> z = z.replace('secs','').strip()
+    >>> isinstance(float(z),float)
     True
     >>> conn.commit()
     True
@@ -312,7 +314,7 @@ Let's try an update
 
     >>> qry = u'document("BS")//book[title="Learning XML"]'
     >>> data = conn.execute(qry, pretty_print=True)
-    >>> print(data.value)
+    >>> print(data.value) #doctest: +NORMALIZE_WHITESPACE
     <book category="WEB">
      <title lang="en">Learning XML</title>
      <author>Erik T. Ray</author>
@@ -333,7 +335,7 @@ into the item.  We also look at mixed-mode element handling here.
 OK. Update succeeded.  Let's see the new item.
 
     >>> check = conn.execute(qry, pretty_print=True)
-    >>> print(check.value)
+    >>> print(check.value) #doctest: +NORMALIZE_WHITESPACE
     <book category="WEB">
      <quality>Great <i>happy </i>quality</quality>
      <title lang="en">Learning XML</title>
@@ -412,7 +414,7 @@ an SXML parser.  It is smaller...
 
     >>> qry = u'document("BS")//book[title="Learning XML"]'
     >>> data = conn.execute(qry,format=1,pretty_print=True)
-    >>> print(data.value)
+    >>> print(data.value) #doctest: +NORMALIZE_WHITESPACE
     (book(@ (category  "WEB"))
      (quality"Great "(i"happy ")"quality")
      (title(@ (lang  "en"))"Learning XML")
@@ -437,10 +439,8 @@ syntax error, so will be caught right when the query is sent.
     >>> try:
     ...     result = conn.execute(u'hello world', pretty_print=True)
     ... except conn.DatabaseError,e:
-    ...     print(e)
-    [3] SEDNA Message: ERROR XPST0003
-    It is a static error if an expression is not a valid instance of the grammar defined in A.1 EBNF.
-    Details: syntax error at token: 'world', line: 1
+    ...     print("We caught ERROR XPST0003!")
+    We caught ERROR XPST0003!
 
 Now for errors in 'valid' but troublesome queries, errors that happen while the
 result is being generated.
@@ -455,12 +455,13 @@ Here's a query that fails at run-time.
     ... };
     ... local:f()
     ... '''
-    >>> result = conn.execute(qry)
+    >>> result = conn.execute(qry) #doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    DatabaseError: [112] SEDNA Message: ERROR FORG0001
+    DatabaseError: [...] SEDNA Message: ERROR FORG0001
     Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
+    ...
 
 We get an error, but this is not as helpful as it can be.  We set debugOn to
 get a bit more info.
@@ -472,14 +473,13 @@ We turn on debug messages.
 Retry the same query. Now, when we get the traceback, there is a bit more info
 that is maybe helpful.
 
-    >>> result = conn.execute(qry)
+    >>> result = conn.execute(qry) #doctest: +ELLIPSIS
     Traceback (most recent call last):
-    ...
-    DatabaseError: PPCast : 1
-    PPFunCall : 1 : http://www.w3.org/2005/xquery-local-functions:f
-    [112] SEDNA Message: ERROR FORG0001
+    ... 
+    DatabaseError: ... SEDNA Message: ERROR FORG0001
     Invalid value for cast/constructor.
     Details: Cannot convert to xs:integer type
+    ...
 
     >>> conn.debugOff()
 

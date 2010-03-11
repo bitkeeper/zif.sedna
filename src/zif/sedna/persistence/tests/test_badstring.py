@@ -14,8 +14,9 @@ class Foo:
         self.s = s
 
 class WeirdUni(unicode):
-    def __init__(self,s):
-        unicode.__init__(self,s)
+    pass
+#    def __init__(self,s):
+#        unicode.__init__(self,s)
 
 # show that I didn't screw up normal strings
 f = Foo('OK')
@@ -49,6 +50,7 @@ try:
     # Unicode string that contains our special string escape    
     f = Foo(WeirdUni(u'\xbb\xbbABC\xab\xab'))
     x = xml_pickle.dumps(f)
+    print x
     print "************* ERROR *************"
 except Exception,exc:
     print "OK  <%s>" % str(exc)
@@ -57,6 +59,7 @@ try:
     # Unicode string that contains our special string escape    
     f = Foo({'a':u'\xbb\xbbABC\xab\xab'})
     x = xml_pickle.dumps(f)
+    print x
     print "************* ERROR *************"
 except Exception,exc:
     print "OK  <%s>" % str(exc)
@@ -65,6 +68,7 @@ try:
     # Unicode string that contains our special string escape
     f = Foo({'a':WeirdUni(u'\xbb\xbbABC\xab\xab')})
     x = xml_pickle.dumps(f)
+    print x
     print "************* ERROR *************"
 except Exception,exc:
     print "OK  <%s>" % str(exc)
@@ -73,6 +77,7 @@ try:
     # illegal Unicode value for an XML file 
     f = Foo(u'\ud800')
     x = xml_pickle.dumps(f)
+    print x
     print "************* ERROR *************"
 except Exception,exc:
     print "OK  <%s>" % str(exc)
@@ -81,6 +86,7 @@ try:
     # illegal Unicode value for an XML file
     f = Foo(WeirdUni(u'\ud800'))
     x = xml_pickle.dumps(f)
+    print x
     print "************* ERROR *************"
 except Exception,exc:
     print "OK  <%s>" % str(exc)

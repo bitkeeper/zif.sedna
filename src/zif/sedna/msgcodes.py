@@ -2,6 +2,8 @@
 sedna instruction codes
 """
 
+from copy import copy
+
 # session options
 
 DEBUG_OFF = 0
@@ -72,10 +74,11 @@ SEDNA_RESET_SESSION_OPTIONS = 550
 SEDNA_RESET_SESSION_OPTIONS_OK = 560
 
 codes = {}
-for name,value in globals().items():
+glb = copy(globals())
+for name,value in glb.items():
     if isinstance(value,int):
         codes[value] = name
 
 
 if __name__ == '__main__':
-    print codes
+    print (codes)

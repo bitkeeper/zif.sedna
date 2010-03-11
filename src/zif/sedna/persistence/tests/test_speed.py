@@ -108,7 +108,7 @@ def doit(deepcopy=1):
     fh.close()
     print "TIME = %f"%(time()-t1)
 
-    print "DOM load"
+    print "xml_pickle load"
     t1 = time()
     fh = open('aaa.xml','r')
     #xml_pickle.setParser("DOM") # default, but just to be sure
@@ -166,11 +166,11 @@ if __name__ == '__main__':
     import cProfile
     import pstats
 
-    #cProfile.run('pickling()','profile_pickling')
-    #p = pstats.Stats('profile_pickling')
-    #p.sort_stats('cumulative').print_stats(15)
+    cProfile.run('pickling()','profile_pickling')
+    p = pstats.Stats('profile_pickling')
+    p.sort_stats('cumulative').print_stats(15)
 
-    cProfile.run('unpickling()','profile_unpickling')
-    p = pstats.Stats('profile_unpickling')
-    p.sort_stats('cumulative').print_stats(10)
+    #cProfile.run('unpickling()','profile_unpickling')
+    #p = pstats.Stats('profile_unpickling')
+    #p.sort_stats('cumulative').print_stats(10)
 

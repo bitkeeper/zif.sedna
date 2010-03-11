@@ -1,7 +1,10 @@
 import sys
 
 from decimal import Decimal
-from copy_reg import _slotnames, dispatch_table
+try:
+    from copyreg import _slotnames, dispatch_table
+except ImportError:
+    from copy_reg import _slotnames, dispatch_table
 from types import ClassType, FunctionType, BuiltinFunctionType, TypeType, \
     NoneType, InstanceType
 from base64 import b64encode, b64decode
@@ -118,7 +121,7 @@ def refgen(uuid=False):
                 for c in lst:
                     for d in lst:
                         for e in lst:
-                            yield u'%s%s%s%s%s' % (a, b, c, d, e)
+                            yield '%s%s%s%s%s' % (a, b, c, d, e)
 
 class XMLPickler(object):
     """
