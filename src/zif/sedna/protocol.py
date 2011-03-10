@@ -174,18 +174,18 @@ class BasicCursor(object):
     def __init__(self,connection):
         self.connection = connection
 
-    def execute(self,statement,parameters=None,pretty_print=False):
+    def execute(self,statement,parameters=None,pretty_print=False, nsmap=None):
         if parameters:
             statement = statement % escapeAndQuote(parameters)
         self.result =  self.connection.execute(statement,
-                pretty_print=pretty_print)
+                pretty_print=pretty_print, nsmap=nsmap)
         return self.result
 
-    def executemany(self,statements,parameters=None,pretty_print=False):
+    def executemany(self,statements,parameters=None,pretty_print=False, nsmap=None):
         for statement in statements:
             if parameters:
                 statement = statement % escapeAndQuote(parameters)
-                self.execute(statement,pretty_print=pretty_print)
+                self.execute(statement,pretty_print=pretty_print, nsmap=nsmap)
 
     def __iter__(self):
         return iter(self.result)
@@ -351,13 +351,15 @@ class SednaProtocol(object):
 
     # queries
 
-    def execute(self, query, format=0, pretty_print=False):
+    def execute(self, query, format=0, pretty_print=False, nsmap=None):
         """
         Send query to the Sedna server.
 
         query should be unicode or otherwise encodable to utf-8
         format is 0 for XML
                   1 for SXML
+
+        nsmap is a dict with namespace mapping.
         """
         # first, clear out previous stuff in case we are in a LRP
         self.ermsgs = []
@@ -371,9 +373,16 @@ class SednaProtocol(object):
             self.returnUnicode = False
         #else:
         #    raise ProgrammingError("Expected unicode, got %s." % type(query))
+        out = []
+        if nsmap:
+            for item in nsmap:
+                out.append( 'declare namespace %s="%s";' % (item, nsmap[item]))
         if not pretty_print:
             noindent = 'declare option se:output "indent=no";'
-            query = '%s\n%s' % (noindent,query)
+            out.append(noindent)
+            #query = '%s\n%s' % (noindent,query)
+        out.append(query)
+        query = '\n'.join(out)
         if not self.inTransaction:
             self.begin()
         self.error = None
@@ -463,7 +472,7 @@ class SednaProtocol(object):
 
         """
         if not isinstance(text,unicode):
-            text = ET.tostring(ET.XML(text))
+            text = ET.tostring(ET.XML(text), encoding=unicode)
         self._inputBuffer = StringIO(text)
         s = 'LOAD STDIN "%s"' % document_name
         if collection_name:

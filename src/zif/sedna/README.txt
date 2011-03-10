@@ -413,15 +413,11 @@ like. The default format is 0, XML.  1 gives us SXML.  Maybe useful if you have
 an SXML parser.  It is smaller...
 
     >>> qry = u'document("BS")//book[title="Learning XML"]'
-    >>> data = conn.execute(qry,format=1,pretty_print=True)
+    >>> data = conn.execute(qry, format=1)
     >>> print(data.value) #doctest: +NORMALIZE_WHITESPACE
-    (book(@ (category  "WEB"))
-     (quality"Great "(i"happy ")"quality")
-     (title(@ (lang  "en"))"Learning XML")
-     (author"Erik T. Ray")
-     (year"2003")
-     (price"43.95")
-    )
+        (book (@   (category "WEB")) (quality "Great " (i "happy ") "quality")
+        (title (@   (lang "en")) "Learning XML") (author "Erik T. Ray")
+        (year "2003") (price "43.95"))
     >>> conn.commit()
     True
     >>> conn.close()

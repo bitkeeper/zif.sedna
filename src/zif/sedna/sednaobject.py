@@ -87,16 +87,22 @@ def checkobj(obj,wf=True):
 class SednaXQuery(object):
     """class for read-only xpath queries.  Makes the query result sequence-like.
       slices and stuff...
+      Keyword params:
+      parser         set a parser for output
+      pretty_print   set True or False for formatted output
+      nsmap          mapping of namespaces used in queries
     """
-    def __init__(self,cursor,path, parser=None, pretty_print=False):
+    def __init__(self, cursor, path, **kw):
         self.cursor = cursor
         while path.endswith('/'):
             path = path[:-1]
         self.path = path
         self._count = None
         self._attrib = None
-        self.parser = parser
-        self.pretty_print=pretty_print
+        self.parser = kw.get('parser', None)
+        self.pretty_print = kw.get('pretty_print', False)
+        self.nsmap = kw.get('nsmap', {} )
+
 
     def count(self):
         """
@@ -108,7 +114,7 @@ class SednaXQuery(object):
         #q += u' return <i><c>{count($i)}</c></i>'
         #s = self.cursor.execute(q, pretty_print=self.pretty_print)
         #f = objectify.fromstring(s.value)
-        s = self.cursor.execute("count(%s)" % self.path)
+        s = self.cursor.execute("count(%s)" % self.path, nsmap=self.nsmap)
         #self._count = int(f.c)
         count = self._count = int(s.value)
         return count
@@ -136,11 +142,11 @@ class SednaXQuery(object):
 
         if path.startswith('/'):
             base = self.path.split('/')[0]
-            return SednaXQuery(self.cursor, base + path, parser,
-                pretty_print)
+            return SednaXQuery(self.cursor, base + path, parser=parser,
+                pretty_print=pretty_print)
         else:
             return SednaXQuery(self.cursor, self.path + '/' + path,
-               parser, pretty_print)
+               parser=parser, pretty_print=pretty_print)
 
     def _localKey(self,key):
         """
@@ -178,7 +184,7 @@ class SednaXQuery(object):
             if chrs in normed:
                 normed = normed.replace(chrs,chrs[0])
         q = u' %s' % self.path
-        s = self.cursor.execute(q, pretty_print=self.pretty_print)
+        s = self.cursor.execute(q, pretty_print=self.pretty_print, nsmap=self.nsmap)
         count = -1
         found = False
         for k in s:
@@ -204,7 +210,7 @@ class SednaXQuery(object):
         q += u' $i := %s ' % item
         q += u' return <i>{index-of($p,$i)}</i>'
         try:
-            s = self.cursor.execute(q,pretty_print=self.pretty_print)
+            s = self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap)
         except DatabaseError:
             # this is probably an XQuery expression, not an XPath, so
             # do brute-force evaluation
@@ -234,13 +240,13 @@ class SednaXQuery(object):
             q = u' for $i in %s ' % (self.path,)
             q += u' where $i = %s ' % item
             q += u' return $i'
-            s = self.cursor.execute(q,pretty_print=self.pretty_print)
+            s = self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap)
         else:
             q = u' for $i in %s ' % (self.path,)
             q += u' where $i = %(item)s '
             q += u' return $i'
             s = self.cursor.execute(q,{'item':item},
-                pretty_print=self.pretty_print)
+                pretty_print=self.pretty_print, nsmap=self.nsmap)
         j = s.value
         if j:
             return True
@@ -257,7 +263,7 @@ class SednaXQuery(object):
         #q = u'declare option se:output "indent=no";'
         q = u'for $i in subsequence(%s,%s,%s) ' % (self.path,rstart,rlen)
         q += u'return $i'
-        s = list(self.cursor.execute(q, pretty_print=self.pretty_print))
+        s = list(self.cursor.execute(q, pretty_print=self.pretty_print, nsmap=self.nsmap))
         if self.parser:
             return [self.parser(item) for item in s]
         return s
@@ -269,14 +275,14 @@ class SednaXQuery(object):
 
     def __iter__(self):
         q = u' %s' % self.path
-        s = self.cursor.execute(q,pretty_print=self.pretty_print)
+        s = self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap)
         if self.parser:
             return self._iterparse(s)
         return s
 
     def __str__(self):
         q = u'%s' % self.path
-        s = self.cursor.execute(q,pretty_print=self.pretty_print)
+        s = self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap)
         return s.value
 
     def __len__(self):
@@ -290,25 +296,26 @@ class SednaContainer(SednaXQuery):
     initialize with a cursor and a path to the element.
 
     """
-    def __init__(self,cursor,path,parser=None, check=True, pretty_print=False):
+    def __init__(self, cursor, path, **kw):
         """
         init the class with cursor and path
         set check to false to eliminate a server request, but only if you
         know what you are doing...
         """
-        super(SednaContainer,self).__init__(cursor,path,parser,pretty_print)
-        if check:
+        super(SednaContainer, self).__init__(cursor, path, **kw)
+        if kw.get('check', True):
             self._checkElement()
 
     def _checkElement(self):
         """
         do a check to see that this is a single element
         """
-        q = u'let $i := %s' % (self.path,)
-        q += u' return <i><c>{count($i)}</c></i>'
-        s = self.cursor.execute(q, pretty_print=False)
-        f = objectify.fromstring(s.value)
-        c = int(f.c)
+        #q = u'let $i := %s' % (self.path,)
+        q = u'count(%s)' % self.path
+        s = self.cursor.execute(q, pretty_print=False, nsmap=self.nsmap)
+#        f = objectify.fromstring(s.value)
+#        c = int(f.c)
+        c = int(s.value)
         if c == 1:
             return
         elif c == 0:
@@ -323,7 +330,7 @@ class SednaContainer(SednaXQuery):
         return parent as a SednaContainer or None if at root
         """
         c = self.path + '/..'
-        t = SednaContainer(self.cursor,c,self.parser, check=False,
+        t = SednaContainer(self.cursor, c, parser=self.parser, check=False,
             pretty_print=self.pretty_print)
         if t.tag is None:
             return None
@@ -331,7 +338,7 @@ class SednaContainer(SednaXQuery):
 
     parent = property(getparent)
 
-    def count(self,tag=None):
+    def count(self, tag=None):
         if self._count is not None and tag is None:
             return self._count
         if tag:
@@ -351,7 +358,7 @@ class SednaContainer(SednaXQuery):
             q = u'update insert %s following %s/*[last()]' % (item,self.path)
         else:
             q = u'update insert %s into %s' % (item,self.path)
-        self.cursor.execute(q, pretty_print=True)
+        self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
         self._count = None
 
     def __contains__(self,obj):
@@ -374,7 +381,7 @@ class SednaContainer(SednaXQuery):
         q += u' $i := %s ' % item
         q += u' return <i>{index-of($p,$i)}</i>'
         try:
-            s = self.cursor.execute(q, pretty_print=False)
+            s = self.cursor.execute(q, pretty_print=False, nsmap=self.nsmap)
         except DatabaseError:
             raise ValueError('item not in list')
         if s:
@@ -403,19 +410,19 @@ class SednaContainer(SednaXQuery):
         item = checkobj(item)
         if count > 0:
             q = u'update insert %s preceding %s/*[%s]' % (item,self.path,local)
-            self.cursor.execute(q, pretty_print=True)
+            self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
         else:
             self.append(item)
 
     def remove(self,obj):
         index = self.index(obj) + 1
         q = u'update delete %s/*[%s]' % (self.path,index)
-        self.cursor.execute(q, pretty_print=True)
+        self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
         self._count = None
 
     def __iter__(self):
         q = u' %s/*' % self.path
-        s = self.cursor.execute(q,pretty_print=self.pretty_print)
+        s = self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap)
         if self.parser:
             return self._iterparse(s)
         return s
@@ -423,13 +430,13 @@ class SednaContainer(SednaXQuery):
     def __delitem__(self,key):
         local = self._localKey(key)
         q = u'update delete %s/*[%s]' % (self.path,local)
-        self.cursor.execute(q, pretty_print=True)
+        self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
         self._count = None
 
     @property
     def tag(self):
         q = u"let $i := %s return <t>{$i/name()}</t>" % self.path
-        t1 = self.cursor.execute(q)
+        t1 = self.cursor.execute(q, nsmap=self.nsmap)
         r = fromstring(t1.value)
         return r.text
         #t = self.path.split('/')[-1]
@@ -448,7 +455,7 @@ class SednaContainer(SednaXQuery):
         #q = u''
         #q = u'declare option se:output "indent=no";'
         q = u' %s/*[%s]' % (self.path,local)
-        s = self.cursor.execute(q, pretty_print=self.pretty_print)
+        s = self.cursor.execute(q, pretty_print=self.pretty_print, nsmap=self.nsmap)
         z = self.cursor.fetchone()
         if self.parser:
             return self.parser(z)
@@ -460,14 +467,14 @@ class SednaContainer(SednaXQuery):
         local = self._localKey(key)
         q = u'update replace $i in %s/*[%s] ' % (self.path,local)
         q += ' with %s' % item
-        s = self.cursor.execute(q, pretty_print=True)
+        s = self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
 
     def replace(self,obj):
         """ replace item at self.path with the object"""
         item = checkobj(obj)
         q = u'update replace $i in %s ' % (self.path,)
         q += ' with %s' % (item,)
-        self.cursor.execute(q, pretty_print=True)
+        self.cursor.execute(q, pretty_print=True, nsmap=self.nsmap)
         self._attrib = None
         self._count = None
 
@@ -482,7 +489,7 @@ class SednaContainer(SednaXQuery):
         #q = u'declare option se:output "indent=no";'
         q = u'for $i in subsequence(%s/*,%s,%s) ' % (self.path,rstart,rlen)
         q += 'return $i'
-        s = list(self.cursor.execute(q,pretty_print=self.pretty_print))
+        s = list(self.cursor.execute(q,pretty_print=self.pretty_print, nsmap=self.nsmap))
         if self.parser:
             return [self.parser(item) for item in s]
         return s
@@ -493,8 +500,8 @@ class SednaContainer(SednaXQuery):
     def attrib(self):
         """get the attributes dict for the element
 
-        do not directly modify this. use set('attr','value')
-        If you need to remove an atribute, str -> edit -> replace is the best
+        do not directly modify this. use obj.set('attr','value')
+        If you need to remove an attribute, str -> edit -> replace is the best
         option.
         """
         if self._attrib is not None:
@@ -503,7 +510,7 @@ class SednaContainer(SednaXQuery):
         q += u' let $nm := name($i), '
         q += u' $vl:= data($i)'
         q += u' return <d><k>{$nm}</k><v>{$vl}</v></d>'
-        s = self.cursor.execute(q, pretty_print=False)
+        s = self.cursor.execute(q, pretty_print=False, nsmap=self.nsmap)
         attrs = {}
         for k in s:
             t = objectify.fromstring(k)
@@ -513,7 +520,7 @@ class SednaContainer(SednaXQuery):
 
     def set(self,key,value):
         q = u'%s' % self.path
-        s = self.cursor.execute(q)
+        s = self.cursor.execute(q, nsmap=self.nsmap)
         fromdb = self.cursor.fetchone()
         item = objectify.fromstring(fromdb)
         item.set(key,value)
@@ -524,7 +531,7 @@ class SednaContainer(SednaXQuery):
         obtain the value of an attribute
         """
         q = u'%s/data(@%s)' % (self.path,key)
-        s = self.cursor.execute(q, pretty_print=False)
+        s = self.cursor.execute(q, pretty_print=False, nsmap=self.nsmap)
         t = s.value.strip()
         if t:
             return t
@@ -549,6 +556,9 @@ def containerToSednaXML(obj):
 
 zope.component.provideAdapter(containerToSednaXML)
 
+
+soe_nsmap = {'py': "http://codespeak.net/lxml/objectify/pytype"}
+
 class SednaObjectifiedElement(object):
     """
        An abstraction of a single Element and its children, objectified with
@@ -570,7 +580,7 @@ class SednaObjectifiedElement(object):
         "_element"
 
     """
-    def __init__(self,cursor,path,check=True):
+    def __init__(self, cursor, path, **kw):
         """
         init the class with cursor and path to item
         set check to false to eliminate a server request, but only if you
@@ -580,21 +590,25 @@ class SednaObjectifiedElement(object):
         while path.endswith('/'):
             path = path[:-1]
         self._path = path
+        self._nsmap = kw.get('nsmap',{})
+        check = kw.get('check', True)
         if check:
             self._checkElement()
         g = self._fromdb()
-        parser = objectify.makeparser(ns_clean=True)
+        # parser = objectify.makeparser(ns_clean=True)
+        parser = objectify.makeparser()
         self._element = objectify.fromstring(g,parser)
 
     def _checkElement(self):
         """
         do a check to see that this is a single element
         """
-        q = u'let $i := %s' % (self._path,)
-        q += u' return <i><c>{count($i)}</c></i>'
-        s = self._cursor.execute(q)
-        f = objectify.fromstring(s.value)
-        c = int(f.c)
+        #q = u'let $i := %s' % (self._path,)
+        q = u'count(%s)' % self._path
+        s = self._cursor.execute(q, nsmap=self._nsmap)
+        c = int(s.value)
+        #f = objectify.fromstring(s.value)
+        #c = int(f.c)
         if c == 1:
             return
         elif c == 0:
@@ -608,11 +622,11 @@ class SednaObjectifiedElement(object):
         """ replace item at self._path with the object"""
         q = u'update replace $i in %s ' % (self._path,)
         q += ' with %s' % (s,)
-        self._cursor.execute(q, pretty_print=True)
+        self._cursor.execute(q, pretty_print=True, nsmap=self._nsmap)
 
     def _fromdb(self):
         q = u'%s' % self._path
-        s = self._cursor.execute(q, pretty_print=False)
+        s = self._cursor.execute(q, pretty_print=False, nsmap=self._nsmap)
         t = s.value
         return t
 
@@ -620,8 +634,8 @@ class SednaObjectifiedElement(object):
         """
         return parent as a SednaContainer or None if at root
         """
-        c = self.path + '/..'
-        t = SednaContainer(self.cursor,c,parser=parser,check=False)
+        c = self._path + '/..'
+        t = SednaContainer(self._cursor,c,parser=parser,check=False)
         if t.tag is None:
             return None
         return t
@@ -649,7 +663,7 @@ class SednaObjectifiedElement(object):
         return tostring(self._element, encoding=unicode)
 
     def __setattr__(self,x,value):
-        if x in ('_cursor','_path','_element'):
+        if x in ('_cursor','_path','_element', '_nsmap'):
             try:
                 if x == '_cursor':
                     assert hasattr(value,'execute')
@@ -657,9 +671,11 @@ class SednaObjectifiedElement(object):
                     assert isinstance(value,basestring)
                 elif x == '_element':
                     assert isinstance(value,_Element)
+                elif x == '_nsmap':
+                    assert isinstance(value, dict)
             except AssertionError:
                 raise ValueError(
-            "Oops. _cursor, _path, and _element are used internally.")
+            "Oops. _cursor, _path, _nsmap, and _element are used internally.")
             self.__dict__[x]=value
         else:
             setattr(self._element,x,value)

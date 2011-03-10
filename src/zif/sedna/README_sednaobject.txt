@@ -258,12 +258,12 @@ Initialize a SednaContainer with a cursor and an XPath expression:
     >>> from zif.sedna.sednaobject import SednaContainer
     >>> curs = conn.cursor()
     >>> path = u"doc('testx_region')/regions"
-    >>> z = SednaContainer(curs,path, pretty_print=True)
+    >>> z = SednaContainer(curs, path, pretty_print=True)
 
 It is a value error if the expression returns more than one element.
 
     >>> path = u"doc('testx_region')/regions/*"
-    >>> t = SednaContainer(curs,path)
+    >>> t = SednaContainer(curs, path)
     Traceback (most recent call last):
     ...
     ValueError: Cannot init SednaContainer with multiple elements.
@@ -362,7 +362,7 @@ pretty_print=True.
      <v attr="val">txt</v>
     </africa>
 
-The list of subelements is mutable. Assign a new item at an index.  Subelements
+The list of sub-elements is mutable. Assign a new item at an index.  Sub-elements
 must be well-formed.  Note that we list the enumeration here.  There is only one
 database iterator at a time for a cursor.
 
@@ -632,7 +632,7 @@ is to use dict notation.
     >>> t._cursor = 'Bob'
     Traceback (most recent call last):
     ...
-    ValueError: Oops. _cursor, _path, and _element are used internally.
+    ValueError: Oops. _cursor, _path, _nsmap, and _element are used internally.
     >>> t['_cursor'] = 'Bob'
 
 Important: save modifications.
